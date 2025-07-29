@@ -35,6 +35,7 @@ const ADDRESS_CELLS: u32 = 0x2;
 const SIZE_CELLS: u32 = 0x2;
 
 // From https://elixir.bootlin.com/linux/v6.10/source/include/dt-bindings/interrupt-controller/irq.h#L14
+// Look for "The 1st cell..."
 const _IRQ_TYPE_EDGE_RISING: u32 = 1;
 const IRQ_TYPE_LEVEL_HI: u32 = 4;
 
