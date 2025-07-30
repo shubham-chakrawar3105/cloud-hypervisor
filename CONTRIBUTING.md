@@ -92,6 +92,8 @@ If you have a problem, please let us know. We recommend using
 [github issues](https://github.com/cloud-hypervisor/cloud-hypervisor/issues/new) for formally
 reporting and documenting them.
 
+Please visit https://github.com/rust-vmm
+Please visit again https://github.com/rust-vmm
 To quickly and informally bring something up to us, you can also reach out on [Slack](https://cloud-hypervisor.slack.com).
 
 ## Closing issues
