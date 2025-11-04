@@ -50,6 +50,80 @@ impl From<DataMatch> for u64 {
 }
 
 #[derive(Error, Debug)]
+pub enum VmError {
+    #[error("Failed to create Vcpu: {0:?}")]
+    CreateVcpu(#[source] std::io::Error),
+    #[error("Failed to set identity map address: {0:?}")]
+    SetIdentityMapAddress(#[source] std::io::Error),
+    #[error("Failed to set TSS address: {0:?}")]
+    SetTssAddress(#[source] std::io::Error),
+    #[error("Failed to create interrupt controller: {0:?}")]
+    CreateIrq(#[source] std::io::Error),
+    #[error("Failed to register interrupt event: {0:?}")]
+    RegisterIrqFd(#[source] std::io::Error),
+    #[error("Failed to unregister interrupt event: {0:?}")]
+    UnregisterIrqFd(#[source] std::io::Error),
+    #[error("Failed to register IO event: {0:?}")]
+    RegisterIoEvent(#[source] std::io::Error),
+    #[error("Failed to unregister IO event: {0:?}")]
+    UnregisterIoEvent(#[source] std::io::Error),
+    #[error("Failed to set GSI routing: {0:?}")]
+    SetGsiRouting(#[source] std::io::Error),
+    #[error("Failed to create user memory: {0:?}")]
+    CreateUserMemory(#[source] std::io::Error),
+    #[error("Failed to remove user memory: {0:?}")]
+    RemoveUserMemory(#[source] std::io::Error),
+    #[error("Failed to set GSI routing: {0:?}")]
+    CreateDevice(#[source] std::io::Error),
+    #[error("Failed to get preferred target: {0:?}")]
+    GetPreferredTarget(#[source] std::io::Error),
+    #[error("Failed to enable split Irq: {0:?}")]
+    EnableSplitIrq(#[source] std::io::Error),
+    #[error("Failed to enable x2apic API: {0:?}")]
+    EnableX2ApicApi(#[source] std::io::Error),
+    #[error("Failed to get clock: {0:?}")]
+    GetClock(#[source] std::io::Error),
+    #[error("Failed to set clock: {0:?}")]
+    SetClock(#[source] std::io::Error),
+    #[error("Failed to create passthrough device: {0:?}")]
+    CreatePassthroughDevice(#[source] std::io::Error),
+    #[error("Failed to write to guest memory: {0:?}")]
+    GuestMemWrite(#[source] std::io::Error),
+    #[error("Failed to read guest memory: {0:?}")]
+    GuestMemRead(#[source] std::io::Error),
+    #[error("Failed to read from MMIO Bus: {0:?}")]
+    MmioBusRead(#[source] std::io::Error),
+    #[error("Failed to write to MMIO Bus: {0:?}")]
+    MmioBusWrite(#[source] std::io::Error),
+    #[error("Failed to read from IO Bus: {0:?}")]
+    IoBusRead(#[source] std::io::Error),
+    #[error("Failed to write to IO Bus: {0:?}")]
+    IoBusWrite(#[source] std::io::Error),
+    #[error("Failed to get dirty log: {0:?}")]
+    StartDirtyLog(#[source] std::io::Error),
+    #[error("Failed to get dirty log: {0:?}")]
+    StopDirtyLog(#[source] std::io::Error),
+    #[error("Failed to get dirty log: {0:?}")]
+    GetDirtyLog(#[source] std::io::Error),
+    #[error("Failed to assert virtual Interrupt: {0:?}")]
+    AssertVirtualInterrupt(#[source] std::io::Error),
+    #[error("Failed to create Vgic: {0:?}")]
+    CreateVgic(#[source] std::io::Error),
+    #[error("Failed to create Vaia: {0:?}")]
+    CreateVaia(#[source] std::io::Error),
+    #[error("Failed to import isolated pages: {0:?}")]
+    ImportIsolatedPages(#[source] std::io::Error),
+    #[error("Failed to complete isolated import: {0:?}")]
+    CompleteIsolatedImport(#[source] std::io::Error),
+    #[error("Failed to set VM property: {0:?}")]
+    SetVmProperty(#[source] std::io::Error),
+    #[error("Failed to modify GPA host access: {0:?}")]
+    ModifyGpaHostAccess(#[source] std::io::Error),
+    #[error("Failed to initialize VM: {0:?}")]
+    InitializeVm(#[source] std::io::Error),
+}
+
+#[derive(Error, Debug)]
 ///
 /// Enum for VM error
 pub enum HypervisorVmError {
@@ -57,140 +131,140 @@ pub enum HypervisorVmError {
     /// Create Vcpu error
     ///
     #[error("Failed to create Vcpu")]
-    CreateVcpu(#[source] anyhow::Error),
+    CreateVcpu(#[source] VmError),
     ///
     /// Identity map address error
     ///
     #[error("Failed to set identity map address")]
-    SetIdentityMapAddress(#[source] anyhow::Error),
+    SetIdentityMapAddress(#[source] VmError),
     ///
     /// TSS address error
     ///
     #[error("Failed to set TSS address")]
-    SetTssAddress(#[source] anyhow::Error),
+    SetTssAddress(#[source] VmError),
     ///
     /// Create interrupt controller error
     ///
     #[error("Failed to create interrupt controller")]
-    CreateIrq(#[source] anyhow::Error),
+    CreateIrq(#[source] VmError),
     ///
     /// Register interrupt event error
     ///
     #[error("Failed to register interrupt event")]
-    RegisterIrqFd(#[source] anyhow::Error),
+    RegisterIrqFd(#[source] VmError),
     ///
     /// Un register interrupt event error
     ///
     #[error("Failed to unregister interrupt event")]
-    UnregisterIrqFd(#[source] anyhow::Error),
+    UnregisterIrqFd(#[source] VmError),
     ///
     /// Register IO event error
     ///
     #[error("Failed to register IO event")]
-    RegisterIoEvent(#[source] anyhow::Error),
+    RegisterIoEvent(#[source] VmError),
     ///
     /// Unregister IO event error
     ///
     #[error("Failed to unregister IO event")]
-    UnregisterIoEvent(#[source] anyhow::Error),
+    UnregisterIoEvent(#[source] VmError),
     ///
     /// Set GSI routing error
     ///
     #[error("Failed to set GSI routing")]
-    SetGsiRouting(#[source] anyhow::Error),
+    SetGsiRouting(#[source] VmError),
     ///
     /// Create user memory error
     ///
     #[error("Failed to create user memory")]
-    CreateUserMemory(#[source] anyhow::Error),
+    CreateUserMemory(#[source] VmError),
     ///
     /// Remove user memory region error
     ///
     #[error("Failed to remove user memory")]
-    RemoveUserMemory(#[source] anyhow::Error),
+    RemoveUserMemory(#[source] VmError),
     ///
     /// Create device error
     ///
     #[error("Failed to set GSI routing")]
-    CreateDevice(#[source] anyhow::Error),
+    CreateDevice(#[source] VmError),
     ///
     /// Get preferred target error
     ///
     #[error("Failed to get preferred target")]
-    GetPreferredTarget(#[source] anyhow::Error),
+    GetPreferredTarget(#[source] VmError),
     ///
     /// Enable split Irq error
     ///
     #[error("Failed to enable split Irq")]
-    EnableSplitIrq(#[source] anyhow::Error),
+    EnableSplitIrq(#[source] VmError),
     ///
     /// Enable x2apic API error
     ///
     #[error("Failed to enable x2apic API")]
-    EnableX2ApicApi(#[source] anyhow::Error),
+    EnableX2ApicApi(#[source] VmError),
     /// Get clock error
     ///
     #[error("Failed to get clock")]
-    GetClock(#[source] anyhow::Error),
+    GetClock(#[source] VmError),
     ///
     /// Set clock error
     ///
     #[error("Failed to set clock")]
-    SetClock(#[source] anyhow::Error),
+    SetClock(#[source] VmError),
     ///
     /// Create passthrough device
     ///
     #[error("Failed to create passthrough device")]
-    CreatePassthroughDevice(#[source] anyhow::Error),
+    CreatePassthroughDevice(#[source] VmError),
     /// Write to Guest memory
     ///
     #[error("Failed to write to guest memory")]
-    GuestMemWrite(#[source] anyhow::Error),
+    GuestMemWrite(#[source] VmError),
     ///
     /// Read Guest memory
     ///
     #[error("Failed to read guest memory")]
-    GuestMemRead(#[source] anyhow::Error),
+    GuestMemRead(#[source] VmError),
     ///
     /// Read from MMIO Bus
     ///
     #[error("Failed to read from MMIO Bus")]
-    MmioBusRead(#[source] anyhow::Error),
+    MmioBusRead(#[source] VmError),
     ///
     /// Write to MMIO Bus
     ///
     #[error("Failed to write to MMIO Bus")]
-    MmioBusWrite(#[source] anyhow::Error),
+    MmioBusWrite(#[source] VmError),
     ///
     /// Read from IO Bus
     ///
     #[error("Failed to read from IO Bus")]
-    IoBusRead(#[source] anyhow::Error),
+    IoBusRead(#[source] VmError),
     ///
     /// Write to IO Bus
     ///
     #[error("Failed to write to IO Bus")]
-    IoBusWrite(#[source] anyhow::Error),
+    IoBusWrite(#[source] VmError),
     ///
     /// Start dirty log error
     ///
     #[error("Failed to get dirty log")]
-    StartDirtyLog(#[source] anyhow::Error),
+    StartDirtyLog(#[source] VmError),
     ///
     /// Stop dirty log error
     ///
     #[error("Failed to get dirty log")]
-    StopDirtyLog(#[source] anyhow::Error),
+    StopDirtyLog(#[source] VmError),
     ///
     /// Get dirty log error
     ///
     #[error("Failed to get dirty log")]
-    GetDirtyLog(#[source] anyhow::Error),
+    GetDirtyLog(#[source] VmError),
     ///
     /// Assert virtual interrupt error
     ///
     #[error("Failed to assert virtual Interrupt")]
-    AssertVirtualInterrupt(#[source] anyhow::Error),
+    AssertVirtualInterrupt(#[source] VmError),
 
     #[cfg(feature = "sev_snp")]
     ///
@@ -221,31 +295,31 @@ pub enum HypervisorVmError {
     /// Create Vgic error
     ///
     #[error("Failed to create Vgic")]
-    CreateVgic(#[source] anyhow::Error),
+    CreateVgic(#[source] VmError),
     ///
     /// Create Vaia error
     ///
     #[error("Failed to create Vaia")]
-    CreateVaia(#[source] anyhow::Error),
+    CreateVaia(#[source] VmError),
     ///
     /// Import isolated pages error
     ///
     #[error("Failed to import isolated pages")]
-    ImportIsolatedPages(#[source] anyhow::Error),
+    ImportIsolatedPages(#[source] VmError),
     /// Failed to complete isolated import
     ///
     #[error("Failed to complete isolated import")]
-    CompleteIsolatedImport(#[source] anyhow::Error),
+    CompleteIsolatedImport(#[source] VmError),
     /// Failed to set VM property
     ///
     #[error("Failed to set VM property")]
-    SetVmProperty(#[source] anyhow::Error),
+    SetVmProperty(#[source] VmError),
     ///
     /// Modify GPA host access error
     ///
     #[cfg(feature = "sev_snp")]
     #[error("Failed to modify GPA host access")]
-    ModifyGpaHostAccess(#[source] anyhow::Error),
+    ModifyGpaHostAccess(#[source] VmError),
     ///
     /// Failed to mmap
     ///
@@ -256,7 +330,7 @@ pub enum HypervisorVmError {
     /// Failed to initialize VM
     ///
     #[error("Failed to initialize VM")]
-    InitializeVm(#[source] anyhow::Error),
+    InitializeVm(#[source] VmError),
 }
 ///
 /// Result type for returning from a function

@@ -23,7 +23,6 @@ use std::{cmp, io, result, thread};
 
 use acpi_tables::sdt::Sdt;
 use acpi_tables::{Aml, aml};
-use anyhow::anyhow;
 #[cfg(target_arch = "x86_64")]
 use arch::x86_64::get_x2apic_id;
 use arch::{EntryPoint, NumaNodes};
@@ -111,12 +110,26 @@ macro_rules! extract_bits_64_without_offset {
 pub const CPU_MANAGER_ACPI_SIZE: usize = 0xc;
 
 #[derive(Debug, Error)]
+pub enum CpuError {
+    #[error("Could not get vCPU state from snapshot {0:?}")]
+    GetVcpuState(#[source] MigratableError),
+    #[error("Could not set the vCPU state {0:?}")]
+    SetVcpuState(#[source] HypervisorCpuError),
+    #[error("Failed to start restored vCPUs: {0:#?}")]
+    StartRestoredVcpus(#[source] Box<Error>),
+    #[error("PA range not supported {0}")]
+    PaRangeNotSupported(u64),
+    #[error("Guest AMX usage not supported")]
+    AmxNotSupported,
+}
+
+#[derive(Debug, Error)]
 pub enum Error {
     #[error("Error creating vCPU")]
-    VcpuCreate(#[source] anyhow::Error),
+    VcpuCreate(#[source] HypervisorCpuError),
 
     #[error("Error running vCPU")]
-    VcpuRun(#[source] anyhow::Error),
+    VcpuRun(#[source] HypervisorCpuError),
 
     #[error("Error spawning vCPU thread")]
     VcpuSpawn(#[source] io::Error),
@@ -169,7 +182,7 @@ pub enum Error {
     ApplySeccompFilter(#[source] seccompiler::Error),
 
     #[error("Error starting vCPU after restore")]
-    StartRestoreVcpu(#[source] anyhow::Error),
+    StartRestoreVcpu(#[source] CpuError),
 
     #[error("Unexpected VmExit")]
     UnexpectedVmExit,
@@ -191,11 +204,11 @@ pub enum Error {
 
     #[cfg(feature = "guest_debug")]
     #[error("Error translating virtual address")]
-    TranslateVirtualAddress(#[source] anyhow::Error),
+    TranslateVirtualAddress(#[source] HypervisorCpuError),
 
     #[cfg(target_arch = "x86_64")]
     #[error("Error setting up AMX")]
-    AmxEnable(#[source] anyhow::Error),
+    AmxEnable(#[source] CpuError),
 
     #[error("Maximum number of vCPUs {0} exceeds host limit {1}")]
     MaximumVcpusExceeded(u32, u32),
@@ -419,7 +432,7 @@ impl Vcpu {
     ) -> Result<Self> {
         let vcpu = vm
             .create_vcpu(apic_id, vm_ops)
-            .map_err(|e| Error::VcpuCreate(e.into()))?;
+            .map_err(Error::VcpuCreate)?;
         // Initially the cpuid per vCPU is the one supported by this VM.
         Ok(Vcpu {
             vcpu,
@@ -787,7 +800,7 @@ impl CpuManager {
             };
 
             if amx_tile != 0 {
-                return Err(Error::AmxEnable(anyhow!("Guest AMX usage not supported")));
+                return Err(Error::AmxEnable(CpuError::AmxNotSupported));
             } else {
                 let mut mask: usize = 0;
                 // SAFETY: Syscall with valid parameters. We use a raw mutable pointer to
@@ -801,7 +814,7 @@ impl CpuManager {
                     )
                 };
                 if result != 0 || (mask & XFEATURE_XTILEDATA_MASK) != XFEATURE_XTILEDATA_MASK {
-                    return Err(Error::AmxEnable(anyhow!("Guest AMX usage not supported")));
+                    return Err(Error::AmxEnable(CpuError::AmxNotSupported));
                 }
             }
         }
@@ -908,12 +921,12 @@ impl CpuManager {
             #[cfg(target_arch = "aarch64")]
             vcpu.init(self.vm.as_ref())?;
 
-            let state: CpuState = snapshot.to_state().map_err(|e| {
-                Error::VcpuCreate(anyhow!("Could not get vCPU state from snapshot {e:?}"))
-            })?;
+            let state: CpuState = snapshot
+                .to_state()
+                .map_err(|e| Error::VcpuCreate(CpuError::GetVcpuState(e)))?;
             vcpu.vcpu
                 .set_state(&state)
-                .map_err(|e| Error::VcpuCreate(anyhow!("Could not set the vCPU state {e:?}")))?;
+                .map_err(|e| Error::VcpuCreate(CpuError::SetVcpuState(e)))?;
 
             vcpu.saved_state = Some(state);
         }
@@ -1383,9 +1396,7 @@ impl CpuManager {
 
     pub fn start_restored_vcpus(&mut self) -> Result<()> {
         self.activate_vcpus(self.vcpus.len() as u32, false, Some(true))
-            .map_err(|e| {
-                Error::StartRestoreVcpu(anyhow!("Failed to start restored vCPUs: {e:#?}"))
-            })?;
+            .map_err(|e| Error::StartRestoreVcpu(CpuError::StartRestoredVcpus(Box::new(e))))?;
 
         Ok(())
     }
@@ -1857,7 +1868,7 @@ impl CpuManager {
             .unwrap()
             .vcpu
             .translate_gva(gva, /* flags: unused */ 0)
-            .map_err(|e| Error::TranslateVirtualAddress(e.into()))?;
+            .map_err(Error::TranslateVirtualAddress)?;
         Ok(gpa)
     }
 

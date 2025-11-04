@@ -9,7 +9,6 @@ extern crate log;
 pub mod emulator;
 pub mod socket;
 
-use anyhow::anyhow;
 use thiserror::Error;
 
 pub const TPM_CRB_BUFFER_MAX: usize = 3968; // 0x1_000 - 0x80
@@ -45,9 +44,29 @@ pub enum Commands {
 }
 
 #[derive(Error, Debug)]
+pub enum TpmError {
+    #[error("PtmRes buffer is of incorrect length. Got {0} expected {1}.")]
+    PtmResIncorrectLength(usize, usize),
+    #[error(
+        "Response for GetCapability cmd is of incorrect length. Got {0} expected {1}."
+    )]
+    PtmCapIncorrectLength(usize, usize),
+    #[error(
+        "Response for GetTpmEstablished cmd is of incorrect length. Got {0} expected {1}."
+    )]
+    PtmEstIncorrectLength(usize, usize),
+    #[error("Response for Init cmd is of incorrect length. Got {0} expected {1}.")]
+    PtmInitIncorrectLength(usize, usize),
+    #[error(
+        "Response for CmdSetBufferSize cmd is of incorrect length. Got {0} expected {1}."
+    )]
+    PtmSbsIncorrectLength(usize, usize),
+}
+
+#[derive(Error, Debug)]
 pub enum Error {
     #[error("Failed converting buf to PTM ")]
-    ConvertToPtm(#[source] anyhow::Error),
+    ConvertToPtm(#[source] TpmError),
 }
 type Result<T> = anyhow::Result<T, Error>;
 
@@ -99,8 +118,9 @@ impl Ptm for PtmResult {
         let expected_len = 4;
         let len = buf.len();
         if len != expected_len {
-            return Err(Error::ConvertToPtm(anyhow!(
-                "PtmRes buffer is of incorrect length. Got {len} expected {expected_len}."
+            return Err(Error::ConvertToPtm(TpmError::PtmResIncorrectLength(
+                len,
+                expected_len,
             )));
         }
 
@@ -136,8 +156,9 @@ impl Ptm for PtmCap {
         let expected_len = 8;
         let len = buf.len();
         if len != expected_len {
-            return Err(Error::ConvertToPtm(anyhow!(
-                "Response for GetCapability cmd is of incorrect length. Got {len} expected {expected_len}."
+            return Err(Error::ConvertToPtm(TpmError::PtmCapIncorrectLength(
+                len,
+                expected_len,
             )));
         }
         *self = u64::from_be_bytes(buf[..].try_into().unwrap());
@@ -197,8 +218,9 @@ impl Ptm for PtmEst {
         let expected_len = 8;
         let len = buf.len();
         if len != expected_len {
-            return Err(Error::ConvertToPtm(anyhow!(
-                "Response for GetTpmEstablished cmd is of incorrect length. Got {len} expected {expected_len}."
+            return Err(Error::ConvertToPtm(TpmError::PtmEstIncorrectLength(
+                len,
+                expected_len,
             )));
         }
         self.set_result_code(u32::from_be_bytes(buf[..4].try_into().unwrap()));
@@ -259,8 +281,9 @@ impl Ptm for PtmInit {
         let expected_len = 4;
         let len = buf.len();
         if len != expected_len {
-            return Err(Error::ConvertToPtm(anyhow!(
-                "Response for Init cmd is of incorrect length. Got {len} expected {expected_len}."
+            return Err(Error::ConvertToPtm(TpmError::PtmInitIncorrectLength(
+                len,
+                expected_len,
             )));
         }
         self.set_member_type(MemberType::Response);
@@ -348,8 +371,9 @@ impl Ptm for PtmSetBufferSize {
         let expected_len = 16;
         let len = buf.len();
         if len != expected_len {
-            return Err(Error::ConvertToPtm(anyhow!(
-                "Response for CmdSetBufferSize cmd is of incorrect length. Got {len} expected {expected_len}."
+            return Err(Error::ConvertToPtm(TpmError::PtmSbsIncorrectLength(
+                len,
+                expected_len,
             )));
         }
         self.set_member_type(MemberType::Response);

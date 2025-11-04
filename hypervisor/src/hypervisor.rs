@@ -23,42 +23,72 @@ use crate::vm::Vm;
 use crate::{HypervisorType, HypervisorVmConfig};
 
 #[derive(Error, Debug)]
+pub enum Error {
+    #[error("Failed to check availability of the hypervisor: {0:?}")]
+    HypervisorAvailableCheck(#[source] std::io::Error),
+    #[error("Failed to create the hypervisor: {0:?}")]
+    HypervisorCreate(#[source] std::io::Error),
+    #[error("Failed to get API Version: {0:?}")]
+    GetApiVersion(#[source] std::io::Error),
+    #[error("Checking extensions: {0:?}")]
+    CheckExtensions(#[source] std::io::Error),
+    #[error("Failed to get cpuid: {0:?}")]
+    GetCpuId(#[source] std::io::Error),
+    #[error("Failed to get the list of supported MSRs: {0:?}")]
+    GetMsrList(#[source] std::io::Error),
+    #[error("Failed to retrieve TDX capabilities: {0:?}")]
+    TdxCapabilities(#[source] std::io::Error),
+    #[error("Failed to set partition property: {0:?}")]
+    SetPartitionProperty(#[source] std::io::Error),
+    #[error("Unsupported CPU")]
+    UnsupportedCpu,
+}
+
+#[derive(Error, Debug)]
+pub enum VmError {
+    #[error("Failed to create Vm: {0:?}")]
+    VmCreate(#[source] std::io::Error),
+    #[error("Failed to setup Vm: {0:?}")]
+    VmSetup(#[source] std::io::Error),
+}
+
+#[derive(Error, Debug)]
 pub enum HypervisorError {
     ///
     /// Hypervisor availability check error
     ///
     #[error("Failed to check availability of the hypervisor")]
-    HypervisorAvailableCheck(#[source] anyhow::Error),
+    HypervisorAvailableCheck(#[source] Error),
     ///
     /// hypervisor creation error
     ///
     #[error("Failed to create the hypervisor")]
-    HypervisorCreate(#[source] anyhow::Error),
+    HypervisorCreate(#[source] Error),
     ///
     /// Vm creation failure
     ///
     #[error("Failed to create Vm")]
-    VmCreate(#[source] anyhow::Error),
+    VmCreate(#[source] VmError),
     ///
     /// Vm setup failure
     ///
     #[error("Failed to setup Vm")]
-    VmSetup(#[source] anyhow::Error),
+    VmSetup(#[source] VmError),
     ///
     /// API version error
     ///
     #[error("Failed to get API Version")]
-    GetApiVersion(#[source] anyhow::Error),
+    GetApiVersion(#[source] Error),
     ///
     /// CpuId error
     ///
     #[error("Failed to get cpuid")]
-    GetCpuId(#[source] anyhow::Error),
+    GetCpuId(#[source] Error),
     ///
     /// Failed to retrieve list of MSRs.
     ///
     #[error("Failed to get the list of supported MSRs")]
-    GetMsrList(#[source] anyhow::Error),
+    GetMsrList(#[source] Error),
     ///
     /// API version is not compatible
     ///
@@ -68,22 +98,22 @@ pub enum HypervisorError {
     /// Checking extensions failed
     ///
     #[error("Checking extensions")]
-    CheckExtensions(#[source] anyhow::Error),
+    CheckExtensions(#[source] Error),
     ///
     /// Failed to retrieve TDX capabilities
     ///
     #[error("Failed to retrieve TDX capabilities")]
-    TdxCapabilities(#[source] anyhow::Error),
+    TdxCapabilities(#[source] Error),
     ///
     /// Failed to set partition property
     ///
     #[error("Failed to set partition property")]
-    SetPartitionProperty(#[source] anyhow::Error),
+    SetPartitionProperty(#[source] Error),
     ///
     /// Running on an unsupported CPU
     ///
     #[error("Unsupported CPU")]
-    UnsupportedCpu(#[source] anyhow::Error),
+    UnsupportedCpu(#[source] Error),
     ///
     /// Launching a VM with unsupported VM Type
     ///

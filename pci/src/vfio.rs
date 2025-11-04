@@ -11,7 +11,6 @@ use std::path::PathBuf;
 use std::ptr::null_mut;
 use std::sync::{Arc, Barrier, Mutex};
 
-use anyhow::anyhow;
 use byteorder::{ByteOrder, LittleEndian};
 use hypervisor::HypervisorVmError;
 use libc::{_SC_PAGESIZE, sysconf};
@@ -46,6 +45,12 @@ use crate::{
 pub(crate) const VFIO_COMMON_ID: &str = "vfio_common";
 
 #[derive(Debug, Error)]
+pub enum Error {
+    #[error("Failed to retrieve state from snapshot: {0}")]
+    RetrieveState(#[source] MigratableError),
+}
+
+#[derive(Debug, Error)]
 pub enum VfioPciError {
     #[error("Failed to create user memory region")]
     CreateUserMemoryRegion(#[source] HypervisorVmError),
@@ -68,13 +73,13 @@ pub enum VfioPciError {
     #[error("Invalid region size")]
     RegionSize,
     #[error("Failed to retrieve MsiConfigState")]
-    RetrieveMsiConfigState(#[source] anyhow::Error),
+    RetrieveMsiConfigState(#[source] Error),
     #[error("Failed to retrieve MsixConfigState")]
-    RetrieveMsixConfigState(#[source] anyhow::Error),
+    RetrieveMsixConfigState(#[source] Error),
     #[error("Failed to retrieve PciConfigurationState")]
-    RetrievePciConfigurationState(#[source] anyhow::Error),
+    RetrievePciConfigurationState(#[source] Error),
     #[error("Failed to retrieve VfioCommonState")]
-    RetrieveVfioCommonState(#[source] anyhow::Error),
+    RetrieveVfioCommonState(#[source] Error),
 }
 
 #[derive(Copy, Clone)]
@@ -472,11 +477,8 @@ impl VfioCommon {
         x_nv_gpudirect_clique: Option<u8>,
     ) -> Result<Self, VfioPciError> {
         let pci_configuration_state =
-            vm_migration::state_from_id(snapshot.as_ref(), PCI_CONFIGURATION_ID).map_err(|e| {
-                VfioPciError::RetrievePciConfigurationState(anyhow!(
-                    "Failed to get PciConfigurationState from Snapshot: {e}"
-                ))
-            })?;
+            vm_migration::state_from_id(snapshot.as_ref(), PCI_CONFIGURATION_ID)
+                .map_err(|e| VfioPciError::RetrievePciConfigurationState(Error::RetrieveState(e)))?;
 
         let configuration = PciConfiguration::new(
             0,
@@ -511,22 +513,14 @@ impl VfioCommon {
             .as_ref()
             .map(|s| s.to_state())
             .transpose()
-            .map_err(|e| {
-                VfioPciError::RetrieveVfioCommonState(anyhow!(
-                    "Failed to get VfioCommonState from Snapshot: {e}"
-                ))
-            })?;
+            .map_err(|e| VfioPciError::RetrieveVfioCommonState(Error::RetrieveState(e)))?;
         let msi_state =
             vm_migration::state_from_id(snapshot.as_ref(), MSI_CONFIG_ID).map_err(|e| {
-                VfioPciError::RetrieveMsiConfigState(anyhow!(
-                    "Failed to get MsiConfigState from Snapshot: {e}"
-                ))
+                VfioPciError::RetrieveMsiConfigState(Error::RetrieveState(e))
             })?;
         let msix_state =
             vm_migration::state_from_id(snapshot.as_ref(), MSIX_CONFIG_ID).map_err(|e| {
-                VfioPciError::RetrieveMsixConfigState(anyhow!(
-                    "Failed to get MsixConfigState from Snapshot: {e}"
-                ))
+                VfioPciError::RetrieveMsixConfigState(Error::RetrieveState(e))
             })?;
 
         if let Some(state) = state.as_ref() {

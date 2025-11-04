@@ -7,7 +7,6 @@ use std::any::Any;
 use std::result;
 use std::sync::{Arc, Barrier, Mutex};
 
-use anyhow::anyhow;
 use pci::{
     BarReprogrammingParams, PCI_CONFIGURATION_ID, PciBarConfiguration, PciBarPrefetchable,
     PciBarRegionType, PciClassCode, PciConfiguration, PciDevice, PciDeviceError, PciHeaderType,
@@ -30,11 +29,17 @@ const PVPANIC_PANICKED: u8 = 1 << 0;
 const PVPANIC_CRASH_LOADED: u8 = 1 << 1;
 
 #[derive(Debug, Error)]
+pub enum Error {
+    #[error("Failed to get state from snapshot: {0}")]
+    RetrieveState(#[source] MigratableError),
+}
+
+#[derive(Debug, Error)]
 pub enum PvPanicError {
     #[error("Failed creating PvPanicDevice")]
-    CreatePvPanicDevice(#[source] anyhow::Error),
+    CreatePvPanicDevice(#[source] Error),
     #[error("Failed to retrieve PciConfigurationState")]
-    RetrievePciConfigurationState(#[source] anyhow::Error),
+    RetrievePciConfigurationState(#[source] Error),
 }
 
 #[derive(Copy, Clone)]
@@ -66,11 +71,8 @@ pub struct PvPanicDeviceState {
 impl PvPanicDevice {
     pub fn new(id: String, snapshot: Option<Snapshot>) -> Result<Self, PvPanicError> {
         let pci_configuration_state =
-            vm_migration::state_from_id(snapshot.as_ref(), PCI_CONFIGURATION_ID).map_err(|e| {
-                PvPanicError::RetrievePciConfigurationState(anyhow!(
-                    "Failed to get PciConfigurationState from Snapshot: {e}"
-                ))
-            })?;
+            vm_migration::state_from_id(snapshot.as_ref(), PCI_CONFIGURATION_ID)
+                .map_err(|e| PvPanicError::RetrievePciConfigurationState(Error::RetrieveState(e)))?;
 
         let mut configuration = PciConfiguration::new(
             PVPANIC_VENDOR_ID,
@@ -93,15 +95,12 @@ impl PvPanicDevice {
             "No bar reprogrammig is expected from writing to the COMMAND register"
         );
 
-        let state: Option<PvPanicDeviceState> = snapshot
-            .as_ref()
-            .map(|s| s.to_state())
-            .transpose()
-            .map_err(|e| {
-                PvPanicError::CreatePvPanicDevice(anyhow!(
-                    "Failed to get PvPanicDeviceState from Snapshot: {e}"
-                ))
-            })?;
+        let state: Option<PvPanicDeviceState> =
+            snapshot
+                .as_ref()
+                .map(|s| s.to_state())
+                .transpose()
+                .map_err(|e| PvPanicError::CreatePvPanicDevice(Error::RetrieveState(e)))?;
         let events = if let Some(state) = state {
             state.events
         } else {

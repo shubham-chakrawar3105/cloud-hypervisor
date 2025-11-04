@@ -35,9 +35,15 @@ pub struct DumpState {
 }
 
 #[derive(Error, Debug)]
+pub enum CoredumpError {
+    #[error("Coredump not supported")]
+    NotSupported,
+}
+
+#[derive(Error, Debug)]
 pub enum GuestDebuggableError {
     #[error("coredump")]
-    Coredump(#[source] anyhow::Error),
+    Coredump(#[source] CoredumpError),
     #[error("coredump file")]
     CoredumpFile(#[source] std::io::Error),
     #[error("Failed to pause")]

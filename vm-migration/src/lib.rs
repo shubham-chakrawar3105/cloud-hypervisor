@@ -3,7 +3,6 @@
 // SPDX-License-Identifier: Apache-2.0 AND BSD-3-Clause
 //
 
-use anyhow::anyhow;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -12,45 +11,59 @@ use crate::protocol::MemoryRangeTable;
 pub mod protocol;
 
 #[derive(Error, Debug)]
+pub enum Error {
+    #[error("Error serializing component state: {0}")]
+    Serde(#[source] serde_json::Error),
+    #[error("Missing snapshot data")]
+    MissingSnapshotData,
+}
+
+#[derive(Error, Debug)]
+pub enum MigrationError {
+    #[error("Migration error: {0:?}")]
+    Migration(#[source] std::io::Error),
+}
+
+#[derive(Error, Debug)]
 pub enum MigratableError {
     #[error("Failed to pause migratable component")]
-    Pause(#[source] anyhow::Error),
+    Pause(#[source] MigrationError),
 
     #[error("Failed to resume migratable component")]
-    Resume(#[source] anyhow::Error),
+    Resume(#[source] MigrationError),
 
     #[error("Failed to snapshot migratable component")]
-    Snapshot(#[source] anyhow::Error),
+    Snapshot(#[source] Error),
 
     #[error("Failed to restore migratable component")]
-    Restore(#[source] anyhow::Error),
+    Restore(#[source] Error),
 
     #[error("Failed to send migratable component snapshot")]
-    MigrateSend(#[source] anyhow::Error),
+    MigrateSend(#[source] MigrationError),
 
     #[error("Failed to receive migratable component snapshot")]
-    MigrateReceive(#[source] anyhow::Error),
+    MigrateReceive(#[source] MigrationError),
 
     #[error("Socket error")]
     MigrateSocket(#[source] std::io::Error),
 
     #[error("Failed to start migration for migratable component")]
-    StartDirtyLog(#[source] anyhow::Error),
+    StartDirtyLog(#[source] MigrationError),
 
     #[error("Failed to stop migration for migratable component")]
-    StopDirtyLog(#[source] anyhow::Error),
+    StopDirtyLog(#[source] MigrationError),
 
     #[error("Failed to retrieve dirty ranges for migratable component")]
-    DirtyLog(#[source] anyhow::Error),
+    DirtyLog(#[source] MigrationError),
 
     #[error("Failed to start migration for migratable component")]
-    StartMigration(#[source] anyhow::Error),
+    StartMigration(#[source] MigrationError),
 
     #[error("Failed to complete migration for migratable component")]
-    CompleteMigration(#[source] anyhow::Error),
+    CompleteMigration(#[source] MigrationError),
 
     #[error("Failed to release a disk lock before the migration")]
-    UnlockError(#[source] anyhow::Error),
+    UnlockError(#[source] MigrationError),
 }
 
 /// A Pausable component can be paused and resumed.
@@ -83,8 +96,7 @@ impl SnapshotData {
     where
         T: Deserialize<'a>,
     {
-        serde_json::from_str(&self.state)
-            .map_err(|e| MigratableError::Restore(anyhow!("Error deserialising: {e}")))
+        serde_json::from_str(&self.state).map_err(|e| MigratableError::Restore(Error::Serde(e)))
     }
 
     /// Create from state that can be serialized
@@ -92,8 +104,8 @@ impl SnapshotData {
     where
         T: Serialize,
     {
-        let state = serde_json::to_string(state)
-            .map_err(|e| MigratableError::Snapshot(anyhow!("Error serialising: {e}")))?;
+        let state =
+            serde_json::to_string(state).map_err(|e| MigratableError::Snapshot(Error::Serde(e)))?;
 
         Ok(SnapshotData { state })
     }
@@ -150,7 +162,7 @@ impl Snapshot {
     {
         self.snapshot_data
             .as_ref()
-            .ok_or_else(|| MigratableError::Restore(anyhow!("Missing snapshot data")))?
+            .ok_or(MigratableError::Restore(Error::MissingSnapshotData))?
             .to_state()
     }
 }

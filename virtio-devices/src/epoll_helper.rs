@@ -23,6 +23,14 @@ pub struct EpollHelper {
 }
 
 #[derive(Error, Debug)]
+pub enum Error {
+    #[error("Vhost-user error: {0}")]
+    VhostUser(#[source] crate::vhost_user::Error),
+    #[error("Unknown event for vhost-user thread")]
+    VhostUserUnknownEvent,
+}
+
+#[derive(Error, Debug)]
 pub enum EpollHelperError {
     #[error("Failed to create Fd")]
     CreateFd(#[source] std::io::Error),
@@ -35,9 +43,9 @@ pub enum EpollHelperError {
     #[error("Failed to get virtio-queue index")]
     QueueRingIndex(#[source] virtio_queue::Error),
     #[error("Failed to handle virtio device events")]
-    HandleEvent(#[source] anyhow::Error),
+    HandleEvent(#[source] Error),
     #[error("Failed to handle timeout")]
-    HandleTimeout(#[source] anyhow::Error),
+    HandleTimeout(#[source] Error),
 }
 
 pub const EPOLL_HELPER_EVENT_PAUSE: u16 = 0;

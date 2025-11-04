@@ -21,7 +21,6 @@ use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Barrier, Mutex, mpsc};
 use std::{io, result};
 
-use anyhow::anyhow;
 use seccompiler::SeccompAction;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -100,6 +99,26 @@ const QUEUE_AVAIL_EVENT: u16 = EPOLL_HELPER_EVENT_LAST + 1;
 const VIRTIO_MEM_F_ACPI_PXM: u8 = 0;
 
 #[derive(Error, Debug)]
+pub enum MemError {
+    #[error("New size is identical to the requested size")]
+    SameSize,
+    #[error("New size is bigger than region size")]
+    SizeTooBig,
+    #[error("New size is not aligned on block size")]
+    SizeNotAligned,
+    #[error("Address is not aligned on block size")]
+    AddressNotAligned,
+    #[error("Region size is not aligned on block size")]
+    RegionSizeNotAligned,
+    #[error("Usable region size is not aligned on block size")]
+    UsableRegionSizeNotAligned,
+    #[error("Plugged size is not aligned on block size")]
+    PluggedSizeNotAligned,
+    #[error("Requested size is not aligned on block size")]
+    RequestedSizeNotAligned,
+}
+
+#[derive(Error, Debug)]
 pub enum Error {
     #[error("Guest gave us bad memory addresses")]
     GuestMemory(#[source] GuestMemoryError),
@@ -120,11 +139,11 @@ pub enum Error {
     #[error("Failed to MpscRecv")]
     MpscRecvFail(#[source] mpsc::RecvError),
     #[error("Resize invalid argument")]
-    ResizeError(#[source] anyhow::Error),
+    Resize(#[source] MemError),
     #[error("Fail to resize trigger")]
     ResizeTriggerFail(#[source] DeviceError),
     #[error("Invalid configuration")]
-    ValidateError(#[source] anyhow::Error),
+    Validate(#[source] MemError),
     #[error("Failed discarding memory range")]
     DiscardMemoryRange(#[source] std::io::Error),
     #[error("Failed DMA mapping")]
@@ -194,39 +213,19 @@ unsafe impl ByteValued for VirtioMemConfig {}
 impl VirtioMemConfig {
     fn validate(&self) -> result::Result<(), Error> {
         if !self.addr.is_multiple_of(self.block_size) {
-            return Err(Error::ValidateError(anyhow!(
-                "addr 0x{:x} is not aligned on block_size 0x{:x}",
-                self.addr,
-                self.block_size
-            )));
+            return Err(Error::Validate(MemError::AddressNotAligned));
         }
         if !self.region_size.is_multiple_of(self.block_size) {
-            return Err(Error::ValidateError(anyhow!(
-                "region_size 0x{:x} is not aligned on block_size 0x{:x}",
-                self.region_size,
-                self.block_size
-            )));
+            return Err(Error::Validate(MemError::RegionSizeNotAligned));
         }
         if !self.usable_region_size.is_multiple_of(self.block_size) {
-            return Err(Error::ValidateError(anyhow!(
-                "usable_region_size 0x{:x} is not aligned on block_size 0x{:x}",
-                self.usable_region_size,
-                self.block_size
-            )));
+            return Err(Error::Validate(MemError::UsableRegionSizeNotAligned));
         }
         if !self.plugged_size.is_multiple_of(self.block_size) {
-            return Err(Error::ValidateError(anyhow!(
-                "plugged_size 0x{:x} is not aligned on block_size 0x{:x}",
-                self.plugged_size,
-                self.block_size
-            )));
+            return Err(Error::Validate(MemError::PluggedSizeNotAligned));
         }
         if !self.requested_size.is_multiple_of(self.block_size) {
-            return Err(Error::ValidateError(anyhow!(
-                "requested_size 0x{:x} is not aligned on block_size 0x{:x}",
-                self.requested_size,
-                self.block_size
-            )));
+            return Err(Error::Validate(MemError::RequestedSizeNotAligned));
         }
 
         Ok(())
@@ -234,21 +233,11 @@ impl VirtioMemConfig {
 
     fn resize(&mut self, size: u64) -> result::Result<(), Error> {
         if self.requested_size == size {
-            return Err(Error::ResizeError(anyhow!(
-                "new size 0x{size:x} and requested_size are identical"
-            )));
+            return Err(Error::Resize(MemError::SameSize));
         } else if size > self.region_size {
-            return Err(Error::ResizeError(anyhow!(
-                "new size 0x{:x} is bigger than region_size 0x{:x}",
-                size,
-                self.region_size
-            )));
+            return Err(Error::Resize(MemError::SizeTooBig));
         } else if !size.is_multiple_of(self.block_size) {
-            return Err(Error::ResizeError(anyhow!(
-                "new size 0x{:x} is not aligned on block_size 0x{:x}",
-                size,
-                self.block_size
-            )));
+            return Err(Error::Resize(MemError::SizeNotAligned));
         }
 
         self.requested_size = size;

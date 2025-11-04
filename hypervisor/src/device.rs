@@ -12,6 +12,14 @@
 use thiserror::Error;
 
 #[derive(Error, Debug)]
+pub enum DeviceError {
+    #[error("Failed to set device attribute: {0:?}")]
+    SetDeviceAttribute(#[source] std::io::Error),
+    #[error("Failed to get device attribute: {0:?}")]
+    GetDeviceAttribute(#[source] std::io::Error),
+}
+
+#[derive(Error, Debug)]
 ///
 /// Enum for device error
 pub enum HypervisorDeviceError {
@@ -19,10 +27,10 @@ pub enum HypervisorDeviceError {
     /// Set device attribute error
     ///
     #[error("Failed to set device attribute")]
-    SetDeviceAttribute(#[source] anyhow::Error),
+    SetDeviceAttribute(#[source] DeviceError),
     ///
     /// Get device attribute error
     ///
     #[error("Failed to get device attribute")]
-    GetDeviceAttribute(#[source] anyhow::Error),
+    GetDeviceAttribute(#[source] DeviceError),
 }

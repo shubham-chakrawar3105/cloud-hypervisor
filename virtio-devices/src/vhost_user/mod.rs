@@ -201,24 +201,21 @@ impl<S: VhostUserFrontendReqHandler> VhostUserEpollHandler<S> {
         Ok(())
     }
 
-    fn reconnect(&mut self, helper: &mut EpollHelper) -> std::result::Result<(), EpollHelperError> {
-        helper.del_event_custom(
-            self.vu.lock().unwrap().socket_handle().as_raw_fd(),
-            HUP_CONNECTION_EVENT,
-            epoll::Events::EPOLLHUP,
-        )?;
+    fn reconnect(&mut self, helper: &mut EpollHelper) -> Result<()> {
+        helper
+            .del_event_custom(
+                self.vu.lock().unwrap().socket_handle().as_raw_fd(),
+                HUP_CONNECTION_EVENT,
+                epoll::Events::EPOLLHUP,
+            )
+            .map_err(|e| Error::VhostUserCreateFrontend(VhostError::from(e)))?;
 
         let mut vhost_user = VhostUserHandle::connect_vhost_user(
             self.server,
             &self.socket_path,
             self.queues.len() as u64,
             true,
-        )
-        .map_err(|e| {
-            EpollHelperError::IoError(std::io::Error::other(format!(
-                "failed connecting vhost-user backend {e:?}"
-            )))
-        })?;
+        )?;
 
         // Initialize the backend
         vhost_user
@@ -234,17 +231,15 @@ impl<S: VhostUserFrontendReqHandler> VhostUserEpollHandler<S> {
                 &self.backend_req_handler,
                 self.inflight.as_mut(),
             )
-            .map_err(|e| {
-                EpollHelperError::IoError(std::io::Error::other(format!(
-                    "failed reconnecting vhost-user backend: {e:?}"
-                )))
-            })?;
+            .map_err(Error::VhostUserCreateFrontend)?;
 
-        helper.add_event_custom(
-            vhost_user.socket_handle().as_raw_fd(),
-            HUP_CONNECTION_EVENT,
-            epoll::Events::EPOLLHUP,
-        )?;
+        helper
+            .add_event_custom(
+                vhost_user.socket_handle().as_raw_fd(),
+                HUP_CONNECTION_EVENT,
+                epoll::Events::EPOLLHUP,
+            )
+            .map_err(|e| Error::VhostUserCreateFrontend(VhostError::from(e)))?;
 
         // Update vhost-user reference
         let mut vu = self.vu.lock().unwrap();
@@ -263,25 +258,22 @@ impl<S: VhostUserFrontendReqHandler> EpollHelperHandler for VhostUserEpollHandle
         let ev_type = event.data as u16;
         match ev_type {
             HUP_CONNECTION_EVENT => {
-                self.reconnect(helper).map_err(|e| {
-                    EpollHelperError::HandleEvent(anyhow!(
-                        "failed to reconnect vhost-user backend: {e:?}"
-                    ))
-                })?;
+                self.reconnect(helper)
+                    .map_err(|e| EpollHelperError::HandleEvent(crate::epoll_helper::Error::VhostUser(e)))?;
             }
             BACKEND_REQ_EVENT => {
                 if let Some(backend_req_handler) = self.backend_req_handler.as_mut() {
                     backend_req_handler.handle_request().map_err(|e| {
-                        EpollHelperError::HandleEvent(anyhow!(
-                            "Failed to handle request from vhost-user backend: {e:?}"
+                        EpollHelperError::HandleEvent(crate::epoll_helper::Error::VhostUser(
+                            Error::VhostUserCreateFrontend(e),
                         ))
                     })?;
                 }
             }
             _ => {
-                return Err(EpollHelperError::HandleEvent(anyhow!(
-                    "Unknown event for vhost-user thread"
-                )));
+                return Err(EpollHelperError::HandleEvent(
+                    crate::epoll_helper::Error::VhostUserUnknownEvent,
+                ));
             }
         }
 

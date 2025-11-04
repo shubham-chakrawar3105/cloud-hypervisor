@@ -9,7 +9,6 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Barrier, Mutex};
 use std::{cmp, io, result};
 
-use anyhow::anyhow;
 use libc::{EFD_NONBLOCK, TIOCGWINSZ};
 use seccompiler::SeccompAction;
 use serde::{Deserialize, Serialize};
@@ -46,6 +45,12 @@ const RESIZE_EVENT: u16 = EPOLL_HELPER_EVENT_LAST + 5;
 
 //Console size feature bit
 const VIRTIO_CONSOLE_F_SIZE: u64 = 0;
+
+#[derive(Error, Debug)]
+pub enum ConsoleError {
+    #[error("Failed to flush PTY: {0:?}")]
+    PtyFlush(#[source] io::Error),
+}
 
 #[derive(Error, Debug)]
 enum Error {
@@ -321,14 +326,13 @@ impl ConsoleEpollHandler {
     // connected. It verifies if this is the first time it's been invoked
     // after the connection happened, and if that's the case it flushes
     // all output from the console to the PTY. Otherwise, it's a no-op.
-    fn trigger_pty_flush(&mut self) -> result::Result<(), anyhow::Error> {
+    fn trigger_pty_flush(&mut self) -> result::Result<(), ConsoleError> {
         if let (Some(pty_write_out), Some(out)) = (&self.write_out, &mut self.out) {
             if pty_write_out.load(Ordering::Acquire) {
                 return Ok(());
             }
             pty_write_out.store(true, Ordering::Release);
-            out.flush()
-                .map_err(|e| anyhow!("Failed to flush PTY: {e:?}"))
+            out.flush().map_err(ConsoleError::PtyFlush)
         } else {
             Ok(())
         }

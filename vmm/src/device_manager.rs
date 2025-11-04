@@ -24,7 +24,6 @@ use std::time::Instant;
 use acpi_tables::sdt::GenericAddress;
 use acpi_tables::{Aml, aml};
 #[cfg(not(target_arch = "riscv64"))]
-use anyhow::anyhow;
 #[cfg(target_arch = "x86_64")]
 use arch::layout::{APIC_START, IOAPIC_SIZE, IOAPIC_START};
 #[cfg(any(target_arch = "aarch64", target_arch = "riscv64"))]
@@ -121,7 +120,7 @@ use crate::vm_config::IvshmemConfig;
 use crate::vm_config::{
     ConsoleOutputMode, DEFAULT_IOMMU_ADDRESS_WIDTH_BITS, DEFAULT_PCI_SEGMENT_APERTURE_WEIGHT,
     DeviceConfig, DiskConfig, FsConfig, NetConfig, PmemConfig, UserDeviceConfig, VdpaConfig,
-    VhostMode, VmConfig, VsockConfig,
+    VhostMode, VsockConfig,
 };
 use crate::{DEVICE_MANAGER_SNAPSHOT_ID, GuestRegionMmap, PciDeviceInfo, device_node};
 
@@ -216,7 +215,7 @@ pub enum DeviceManagerError {
 
     /// Cannot create tpm device
     #[error("Cannot create tmp device")]
-    CreateTpmDevice(#[source] anyhow::Error),
+    CreateTpmDevice(#[source] tpm::emulator::Error),
 
     /// Failed to convert Path to &str for the vDPA device.
     #[error("Failed to convert Path to &str for the vDPA device")]
@@ -285,11 +284,11 @@ pub enum DeviceManagerError {
 
     /// Cannot register ioevent.
     #[error("Cannot register ioevent")]
-    RegisterIoevent(#[source] anyhow::Error),
+    RegisterIoevent(#[source] hypervisor::HypervisorVmError),
 
     /// Cannot unregister ioevent.
     #[error("Cannot unregister ioevent")]
-    UnRegisterIoevent(#[source] anyhow::Error),
+    UnRegisterIoevent(#[source] hypervisor::HypervisorVmError),
 
     /// Cannot create virtio device
     #[error("Cannot create virtio device")]
@@ -370,7 +369,7 @@ pub enum DeviceManagerError {
 
     /// Failed to create the passthrough device.
     #[error("Failed to create the passthrough device")]
-    CreatePassthroughDevice(#[source] anyhow::Error),
+    CreatePassthroughDevice(#[source] hypervisor::HypervisorVmError),
 
     /// Failed to memory map.
     #[error("Failed to memory map")]
@@ -2472,28 +2471,21 @@ impl DeviceManager {
         Ok(Arc::new(Console { console_resizer }))
     }
 
-    #[cfg(not(target_arch = "riscv64"))]
-    fn add_tpm_device(
-        &mut self,
-        tpm_path: PathBuf,
-    ) -> DeviceManagerResult<Arc<Mutex<devices::tpm::Tpm>>> {
-        // Create TPM Device
-        let tpm = devices::tpm::Tpm::new(tpm_path.to_str().unwrap().to_string()).map_err(|e| {
-            DeviceManagerError::CreateTpmDevice(anyhow!("Failed to create TPM Device : {e:?}"))
-        })?;
-        let tpm = Arc::new(Mutex::new(tpm));
+    fn add_tpm_device(&mut self, tpm_socket_path: PathBuf) -> DeviceManagerResult<Arc<Mutex<Tpm>>> {
+        let tpm_device = Arc::new(Mutex::new(
+            Tpm::new(tpm_socket_path).map_err(DeviceManagerError::CreateTpmDevice)?,
+        ));
 
-        // Add TPM Device to mmio
         self.address_manager
             .mmio_bus
             .insert(
-                tpm.clone(),
-                arch::layout::TPM_START.0,
-                arch::layout::TPM_SIZE,
+                tpm_device.clone(),
+                arch::layout::TPM_CRB_START.0,
+                arch::layout::TPM_CRB_SIZE,
             )
             .map_err(DeviceManagerError::BusError)?;
 
-        Ok(tpm)
+        Ok(tpm_device)
     }
 
     /// Tries to acquire advisory locks for all disk images.
@@ -3658,7 +3650,7 @@ impl DeviceManager {
                 self.address_manager
                     .vm
                     .create_passthrough_device()
-                    .map_err(|e| DeviceManagerError::CreatePassthroughDevice(e.into()))?,
+                    .map_err(DeviceManagerError::CreatePassthroughDevice)?
             );
         }
 

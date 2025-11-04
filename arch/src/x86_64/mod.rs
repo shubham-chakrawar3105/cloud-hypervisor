@@ -86,6 +86,14 @@ pub struct CpuidConfig {
 }
 
 #[derive(Debug, Error)]
+pub enum X86_64Error {
+    #[error("Failed to set supported CPUs: {0:?}")]
+    SetSupportedCpus(#[source] HypervisorCpuError),
+    #[error("Cannot set the local interruption due to bad configuration: {0:?}")]
+    LocalIntConfiguration(#[source] HypervisorCpuError),
+}
+
+#[derive(Debug, Error)]
 pub enum Error {
     /// Error writing MP table to memory.
     #[error("Error writing MP table to memory")]
@@ -109,11 +117,11 @@ pub enum Error {
 
     /// Failed to set supported CPUs.
     #[error("Failed to set supported CPUs")]
-    SetSupportedCpusFailed(#[source] anyhow::Error),
+    SetSupportedCpusFailed(#[source] X86_64Error),
 
     /// Cannot set the local interruption due to bad configuration.
     #[error("Cannot set the local interruption due to bad configuration")]
-    LocalIntConfiguration(#[source] anyhow::Error),
+    LocalIntConfiguration(#[source] X86_64Error),
 
     /// Error setting up SMBIOS table
     #[error("Error setting up SMBIOS table")]
@@ -832,7 +840,7 @@ pub fn configure_vcpu(
     }
 
     vcpu.set_cpuid2(&cpuid)
-        .map_err(|e| Error::SetSupportedCpusFailed(e.into()))?;
+        .map_err(|e| Error::SetSupportedCpusFailed(X86_64Error::SetSupportedCpus(e)))?;
 
     if kvm_hyperv {
         vcpu.enable_hyperv_synic().unwrap();
@@ -852,7 +860,8 @@ pub fn configure_vcpu(
         regs::setup_sregs(&guest_memory.memory(), vcpu, enable_x2_apic_mode)
             .map_err(Error::SregsConfiguration)?;
     }
-    interrupts::set_lint(vcpu).map_err(|e| Error::LocalIntConfiguration(e.into()))?;
+    interrupts::set_lint(vcpu)
+        .map_err(|e| Error::LocalIntConfiguration(X86_64Error::LocalIntConfiguration(e)))?;
     Ok(())
 }
 
