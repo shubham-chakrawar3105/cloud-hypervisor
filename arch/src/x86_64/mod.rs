@@ -109,11 +109,11 @@ pub enum Error {
 
     /// Failed to set supported CPUs.
     #[error("Failed to set supported CPUs")]
-    SetSupportedCpusFailed(#[source] anyhow::Error),
+    SetSupportedCpusFailed(#[from] HypervisorCpuError),
 
     /// Cannot set the local interruption due to bad configuration.
     #[error("Cannot set the local interruption due to bad configuration")]
-    LocalIntConfiguration(#[source] anyhow::Error),
+    LocalIntConfiguration(#[from] HypervisorCpuError),
 
     /// Error setting up SMBIOS table
     #[error("Error setting up SMBIOS table")]
@@ -831,8 +831,7 @@ pub fn configure_vcpu(
         debug!("{c}");
     }
 
-    vcpu.set_cpuid2(&cpuid)
-        .map_err(|e| Error::SetSupportedCpusFailed(e.into()))?;
+    vcpu.set_cpuid2(&cpuid)?;
 
     if kvm_hyperv {
         vcpu.enable_hyperv_synic().unwrap();
@@ -852,7 +851,7 @@ pub fn configure_vcpu(
         regs::setup_sregs(&guest_memory.memory(), vcpu, enable_x2_apic_mode)
             .map_err(Error::SregsConfiguration)?;
     }
-    interrupts::set_lint(vcpu).map_err(|e| Error::LocalIntConfiguration(e.into()))?;
+    interrupts::set_lint(vcpu)?;
     Ok(())
 }
 

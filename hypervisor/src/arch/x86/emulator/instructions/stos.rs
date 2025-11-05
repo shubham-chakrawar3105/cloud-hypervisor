@@ -24,18 +24,18 @@ macro_rules! stos {
             let mut count: u64 = if insn.has_rep_prefix() {
                 state
                     .read_reg(Register::ECX)
-                    .map_err(|e| EmulationError::InvalidOperand(anyhow!(e)))?
+                    .map_err(|e| EmulationError::InvalidOperand(format!(e)))?
             } else {
                 1
             };
 
             let rax = state
                 .read_reg(Register::RAX)
-                .map_err(|e| EmulationError::InvalidOperand(anyhow!(e)))?;
+                .map_err(|e| EmulationError::InvalidOperand(format!(e)))?;
 
             let mut rdi = state
                 .read_reg(Register::RDI)
-                .map_err(|e| EmulationError::InvalidOperand(anyhow!(e)))?;
+                .map_err(|e| EmulationError::InvalidOperand(format!(e)))?;
 
             let df = (state.flags() & DF) != 0;
             let len = std::mem::size_of::<$bound>();
@@ -44,7 +44,7 @@ macro_rules! stos {
             while count > 0 {
                 let dst = state
                     .linearize(Register::ES, rdi, true)
-                    .map_err(|e| EmulationError::InvalidOperand(anyhow!(e)))?;
+                    .map_err(|e| EmulationError::InvalidOperand(format!(e)))?;
 
                 platform
                     .write_memory(dst, &rax_bytes[0..len])
@@ -61,7 +61,7 @@ macro_rules! stos {
             if insn.has_rep_prefix() {
                 state
                     .write_reg(Register::ECX, 0)
-                    .map_err(|e| EmulationError::InvalidOperand(anyhow!(e)))?;
+                    .map_err(|e| EmulationError::InvalidOperand(format!(e)))?;
             }
 
             Ok(())

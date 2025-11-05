@@ -34,10 +34,10 @@ pub enum EpollHelperError {
     Wait(#[source] std::io::Error),
     #[error("Failed to get virtio-queue index")]
     QueueRingIndex(#[source] virtio_queue::Error),
-    #[error("Failed to handle virtio device events")]
-    HandleEvent(#[source] anyhow::Error),
-    #[error("Failed to handle timeout")]
-    HandleTimeout(#[source] anyhow::Error),
+    #[error("Failed to handle virtio device events: {0}")]
+    HandleEvent(String),
+    #[error("Failed to handle timeout: {0}")]
+    HandleTimeout(String),
 }
 
 pub const EPOLL_HELPER_EVENT_PAUSE: u16 = 0;

@@ -11,7 +11,6 @@ use std::path::PathBuf;
 use std::ptr::null_mut;
 use std::sync::{Arc, Barrier, Mutex};
 
-use anyhow::anyhow;
 use byteorder::{ByteOrder, LittleEndian};
 use hypervisor::HypervisorVmError;
 use libc::{_SC_PAGESIZE, sysconf};
@@ -67,14 +66,8 @@ pub enum VfioPciError {
     RegionAlignment,
     #[error("Invalid region size")]
     RegionSize,
-    #[error("Failed to retrieve MsiConfigState")]
-    RetrieveMsiConfigState(#[source] anyhow::Error),
-    #[error("Failed to retrieve MsixConfigState")]
-    RetrieveMsixConfigState(#[source] anyhow::Error),
-    #[error("Failed to retrieve PciConfigurationState")]
-    RetrievePciConfigurationState(#[source] anyhow::Error),
-    #[error("Failed to retrieve VfioCommonState")]
-    RetrieveVfioCommonState(#[source] anyhow::Error),
+    #[error("Migration error")]
+    Migration(#[from] MigratableError),
 }
 
 #[derive(Copy, Clone)]
@@ -472,11 +465,7 @@ impl VfioCommon {
         x_nv_gpudirect_clique: Option<u8>,
     ) -> Result<Self, VfioPciError> {
         let pci_configuration_state =
-            vm_migration::state_from_id(snapshot.as_ref(), PCI_CONFIGURATION_ID).map_err(|e| {
-                VfioPciError::RetrievePciConfigurationState(anyhow!(
-                    "Failed to get PciConfigurationState from Snapshot: {e}"
-                ))
-            })?;
+            vm_migration::state_from_id(snapshot.as_ref(), PCI_CONFIGURATION_ID)?;
 
         let configuration = PciConfiguration::new(
             0,
@@ -507,27 +496,9 @@ impl VfioCommon {
             x_nv_gpudirect_clique,
         };
 
-        let state: Option<VfioCommonState> = snapshot
-            .as_ref()
-            .map(|s| s.to_state())
-            .transpose()
-            .map_err(|e| {
-                VfioPciError::RetrieveVfioCommonState(anyhow!(
-                    "Failed to get VfioCommonState from Snapshot: {e}"
-                ))
-            })?;
-        let msi_state =
-            vm_migration::state_from_id(snapshot.as_ref(), MSI_CONFIG_ID).map_err(|e| {
-                VfioPciError::RetrieveMsiConfigState(anyhow!(
-                    "Failed to get MsiConfigState from Snapshot: {e}"
-                ))
-            })?;
-        let msix_state =
-            vm_migration::state_from_id(snapshot.as_ref(), MSIX_CONFIG_ID).map_err(|e| {
-                VfioPciError::RetrieveMsixConfigState(anyhow!(
-                    "Failed to get MsixConfigState from Snapshot: {e}"
-                ))
-            })?;
+        let state: Option<VfioCommonState> = snapshot.as_ref().map(|s| s.to_state()).transpose()?;
+        let msi_state = vm_migration::state_from_id(snapshot.as_ref(), MSI_CONFIG_ID)?;
+        let msix_state = vm_migration::state_from_id(snapshot.as_ref(), MSIX_CONFIG_ID)?;
 
         if let Some(state) = state.as_ref() {
             vfio_common.set_state(state, msi_state, msix_state)?;

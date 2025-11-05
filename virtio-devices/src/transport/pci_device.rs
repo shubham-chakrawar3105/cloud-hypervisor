@@ -13,7 +13,6 @@ use std::ops::Deref;
 use std::sync::atomic::{AtomicBool, AtomicU16, AtomicUsize, Ordering};
 use std::sync::{Arc, Barrier, Mutex};
 
-use anyhow::anyhow;
 use libc::EFD_NONBLOCK;
 use pci::{
     BarReprogrammingParams, MsixCap, MsixConfig, PciBarConfiguration, PciBarRegionType,
@@ -310,8 +309,8 @@ impl VirtioPciDeviceActivator {
 
 #[derive(Error, Debug)]
 pub enum VirtioPciDeviceError {
-    #[error("Failed creating VirtioPciDevice")]
-    CreateVirtioPciDevice(#[source] anyhow::Error),
+    #[error("Failed creating VirtioPciDevice: {0}")]
+    CreateVirtioPciDevice(String),
 }
 pub type Result<T> = std::result::Result<T, VirtioPciDeviceError>;
 
@@ -394,7 +393,7 @@ impl VirtioPciDevice {
         let mut queue_evts = Vec::new();
         for _ in locked_device.queue_max_sizes().iter() {
             queue_evts.push(EventFd::new(EFD_NONBLOCK).map_err(|e| {
-                VirtioPciDeviceError::CreateVirtioPciDevice(anyhow!("Failed creating eventfd: {e}"))
+                VirtioPciDeviceError::CreateVirtioPciDevice(format!("Failed creating eventfd: {e}"))
             })?)
         }
         let num_queues = locked_device.queue_max_sizes().len();
@@ -417,14 +416,14 @@ impl VirtioPciDevice {
                 count: msix_num as InterruptIndex,
             })
             .map_err(|e| {
-                VirtioPciDeviceError::CreateVirtioPciDevice(anyhow!(
+                VirtioPciDeviceError::CreateVirtioPciDevice(format!(
                     "Failed creating MSI interrupt group: {e}"
                 ))
             })?;
 
         let msix_state = vm_migration::state_from_id(snapshot.as_ref(), pci::MSIX_CONFIG_ID)
             .map_err(|e| {
-                VirtioPciDeviceError::CreateVirtioPciDevice(anyhow!(
+                VirtioPciDeviceError::CreateVirtioPciDevice(format!(
                     "Failed to get MsixConfigState from Snapshot: {e}"
                 ))
             })?;
@@ -463,7 +462,7 @@ impl VirtioPciDevice {
         let pci_configuration_state =
             vm_migration::state_from_id(snapshot.as_ref(), pci::PCI_CONFIGURATION_ID).map_err(
                 |e| {
-                    VirtioPciDeviceError::CreateVirtioPciDevice(anyhow!(
+                    VirtioPciDeviceError::CreateVirtioPciDevice(format!(
                         "Failed to get PciConfigurationState from Snapshot: {e}"
                     ))
                 },
@@ -486,7 +485,7 @@ impl VirtioPciDevice {
         let common_config_state =
             vm_migration::state_from_id(snapshot.as_ref(), VIRTIO_PCI_COMMON_CONFIG_ID).map_err(
                 |e| {
-                    VirtioPciDeviceError::CreateVirtioPciDevice(anyhow!(
+                    VirtioPciDeviceError::CreateVirtioPciDevice(format!(
                         "Failed to get VirtioPciCommonConfigState from Snapshot: {e}"
                     ))
                 },
@@ -514,7 +513,7 @@ impl VirtioPciDevice {
             .map(|s| s.to_state())
             .transpose()
             .map_err(|e| {
-                VirtioPciDeviceError::CreateVirtioPciDevice(anyhow!(
+                VirtioPciDeviceError::CreateVirtioPciDevice(format!(
                     "Failed to get VirtioPciDeviceState from Snapshot: {e}"
                 ))
             })?;
@@ -604,7 +603,7 @@ impl VirtioPciDevice {
             && virtio_pci_device.is_driver_ready()
         {
             virtio_pci_device.activate().map_err(|e| {
-                VirtioPciDeviceError::CreateVirtioPciDevice(anyhow!(
+                VirtioPciDeviceError::CreateVirtioPciDevice(format!(
                     "Failed activating the device: {e}"
                 ))
             })?;

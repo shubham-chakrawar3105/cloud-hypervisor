@@ -36,62 +36,62 @@ impl<T: Debug> Display for Exception<T> {
 
 #[derive(Error, Debug)]
 pub enum PlatformError {
-    #[error("Invalid address")]
-    InvalidAddress(#[source] anyhow::Error),
+    #[error("Invalid address: {0}")]
+    InvalidAddress(String),
 
-    #[error("Invalid register")]
-    InvalidRegister(#[source] anyhow::Error),
+    #[error("Invalid register: {0}")]
+    InvalidRegister(String),
 
-    #[error("Invalid state")]
-    InvalidState(#[source] anyhow::Error),
+    #[error("Invalid state: {0}")]
+    InvalidState(String),
 
-    #[error("Memory read failure")]
-    MemoryReadFailure(#[source] anyhow::Error),
+    #[error("Memory read failure: {0}")]
+    MemoryReadFailure(String),
 
-    #[error("Memory write failure")]
-    MemoryWriteFailure(#[source] anyhow::Error),
+    #[error("Memory write failure: {0}")]
+    MemoryWriteFailure(String),
 
-    #[error("Get CPU state failure")]
-    GetCpuStateFailure(#[source] anyhow::Error),
+    #[error("Get CPU state failure: {0}")]
+    GetCpuStateFailure(String),
 
-    #[error("Set CPU state failure")]
-    SetCpuStateFailure(#[source] anyhow::Error),
+    #[error("Set CPU state failure: {0}")]
+    SetCpuStateFailure(String),
 
-    #[error("Translate virtual address")]
-    TranslateVirtualAddress(#[source] anyhow::Error),
+    #[error("Translate virtual address: {0}")]
+    TranslateVirtualAddress(String),
 
-    #[error("Unsupported CPU Mode")]
-    UnsupportedCpuMode(#[source] anyhow::Error),
+    #[error("Unsupported CPU Mode: {0}")]
+    UnsupportedCpuMode(String),
 
-    #[error("Invalid instruction operand")]
-    InvalidOperand(#[source] anyhow::Error),
+    #[error("Invalid instruction operand: {0}")]
+    InvalidOperand(String),
 }
 
 #[derive(Error, Debug)]
 pub enum EmulationError<T: Debug> {
-    #[error("Unsupported instruction")]
-    UnsupportedInstruction(#[source] anyhow::Error),
+    #[error("Unsupported instruction: {0}")]
+    UnsupportedInstruction(String),
 
-    #[error("Unsupported memory size")]
-    UnsupportedMemorySize(#[source] anyhow::Error),
+    #[error("Unsupported memory size: {0}")]
+    UnsupportedMemorySize(String),
 
-    #[error("Invalid operand")]
-    InvalidOperand(#[source] anyhow::Error),
+    #[error("Invalid operand: {0}")]
+    InvalidOperand(String),
 
-    #[error("Wrong number of operands")]
-    WrongNumberOperands(#[source] anyhow::Error),
+    #[error("Wrong number of operands: {0}")]
+    WrongNumberOperands(String),
 
     #[error("Instruction Exception")]
     InstructionException(#[source] Exception<T>),
 
-    #[error("Instruction fetching error")]
-    InstructionFetchingError(#[source] anyhow::Error),
+    #[error("Instruction fetching error: {0}")]
+    InstructionFetchingError(String),
 
     #[error("Platform emulation error")]
     PlatformEmulationError(#[source] PlatformError),
 
-    #[error(transparent)]
-    EmulationError(#[from] anyhow::Error),
+    #[error("Emulation error: {0}")]
+    EmulationError(Box<dyn std::error::Error + Send + Sync>),
 }
 
 /// The PlatformEmulator trait emulates a guest platform.

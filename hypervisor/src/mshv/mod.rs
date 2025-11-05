@@ -499,7 +499,7 @@ impl cpu::Vcpu for MshvVcpu {
         Ok(self
             .fd
             .get_regs()
-            .map_err(|e| cpu::HypervisorCpuError::GetStandardRegs(e.into()))?
+            .map_err(|e| cpu::HypervisorCpuError::GetStandardRegs(e))?
             .into())
     }
 
@@ -510,7 +510,7 @@ impl cpu::Vcpu for MshvVcpu {
         let regs = (*regs).into();
         self.fd
             .set_regs(&regs)
-            .map_err(|e| cpu::HypervisorCpuError::SetStandardRegs(e.into()))
+            .map_err(|e| cpu::HypervisorCpuError::SetStandardRegs(e))
     }
 
     #[cfg(target_arch = "x86_64")]
@@ -521,7 +521,7 @@ impl cpu::Vcpu for MshvVcpu {
         Ok(self
             .fd
             .get_sregs()
-            .map_err(|e| cpu::HypervisorCpuError::GetSpecialRegs(e.into()))?
+            .map_err(|e| cpu::HypervisorCpuError::GetSpecialRegs(e))?
             .into())
     }
 
@@ -533,7 +533,7 @@ impl cpu::Vcpu for MshvVcpu {
         let sregs = (*sregs).into();
         self.fd
             .set_sregs(&sregs)
-            .map_err(|e| cpu::HypervisorCpuError::SetSpecialRegs(e.into()))
+            .map_err(|e| cpu::HypervisorCpuError::SetSpecialRegs(e))
     }
 
     #[cfg(target_arch = "x86_64")]
@@ -544,7 +544,7 @@ impl cpu::Vcpu for MshvVcpu {
         Ok(self
             .fd
             .get_fpu()
-            .map_err(|e| cpu::HypervisorCpuError::GetFloatingPointRegs(e.into()))?
+            .map_err(|e| cpu::HypervisorCpuError::GetFloatingPointRegs(e))?
             .into())
     }
 
@@ -556,7 +556,7 @@ impl cpu::Vcpu for MshvVcpu {
         let fpu: mshv_bindings::FloatingPointUnit = (*fpu).clone().into();
         self.fd
             .set_fpu(&fpu)
-            .map_err(|e| cpu::HypervisorCpuError::SetFloatingPointRegs(e.into()))
+            .map_err(|e| cpu::HypervisorCpuError::SetFloatingPointRegs(e))
     }
 
     #[cfg(target_arch = "x86_64")]
@@ -569,7 +569,7 @@ impl cpu::Vcpu for MshvVcpu {
         let succ = self
             .fd
             .get_msrs(&mut mshv_msrs)
-            .map_err(|e| cpu::HypervisorCpuError::GetMsrEntries(e.into()))?;
+            .map_err(|e| cpu::HypervisorCpuError::GetMsrEntries(e))?;
 
         msrs[..succ].copy_from_slice(
             &mshv_msrs.as_slice()[..succ]
@@ -591,7 +591,7 @@ impl cpu::Vcpu for MshvVcpu {
         let mshv_msrs = MsrEntries::from_entries(&mshv_msrs).unwrap();
         self.fd
             .set_msrs(&mshv_msrs)
-            .map_err(|e| cpu::HypervisorCpuError::SetMsrEntries(e.into()))
+            .map_err(|e| cpu::HypervisorCpuError::SetMsrEntries(e))
     }
 
     #[cfg(target_arch = "x86_64")]
@@ -620,9 +620,12 @@ impl cpu::Vcpu for MshvVcpu {
                         hv_arm64_reset_type_HV_ARM64_RESET_TYPE_POWER_OFF => {
                             Ok(cpu::VmExit::Shutdown)
                         }
-                        _ => Err(cpu::HypervisorCpuError::RunVcpu(anyhow!(
-                            "Unhandled VCPU exit (RESET_INTERCEPT): reset type: {:?}",
-                            reset_msg.reset_type
+                        _ => Err(cpu::HypervisorCpuError::RunVcpu(std::io::Error::new(
+                            std::io::ErrorKind::Other,
+                            format!(
+                                "Unhandled VCPU exit (RESET_INTERCEPT): reset type: {:?}",
+                                reset_msg.reset_type
+                            ),
                         ))),
                     }
                 }
@@ -680,13 +683,13 @@ impl cpu::Vcpu for MshvVcpu {
                         if let Some(vm_ops) = &self.vm_ops {
                             vm_ops
                                 .pio_write(port.into(), &data[0..len])
-                                .map_err(|e| cpu::HypervisorCpuError::RunVcpu(e.into()))?;
+                                .map_err(|e| cpu::HypervisorCpuError::RunVcpu(e))?;
                         }
                     } else {
                         if let Some(vm_ops) = &self.vm_ops {
                             vm_ops
                                 .pio_read(port.into(), &mut data[0..len])
-                                .map_err(|e| cpu::HypervisorCpuError::RunVcpu(e.into()))?;
+                                .map_err(|e| cpu::HypervisorCpuError::RunVcpu(e))?;
                         }
 
                         let v = u32::from_le_bytes(data);
@@ -727,7 +730,7 @@ impl cpu::Vcpu for MshvVcpu {
                     let mut emulator = emulator::Emulator::new(context);
                     emulator
                         .emulate()
-                        .map_err(|e| cpu::HypervisorCpuError::RunVcpu(e.into()))?;
+                        .map_err(|e| cpu::HypervisorCpuError::RunVcpu(e))?;
 
                     Ok(cpu::VmExit::Ignore)
                 }
@@ -755,12 +758,12 @@ impl cpu::Vcpu for MshvVcpu {
                             self.vp_index as usize,
                             &info.instruction_bytes[..insn_len],
                         )
-                        .map_err(|e| cpu::HypervisorCpuError::RunVcpu(e.into()))?;
+                        .map_err(|e| cpu::HypervisorCpuError::RunVcpu(e))?;
 
                     // Set CPU state back.
                     context
                         .set_cpu_state(self.vp_index as usize, new_state)
-                        .map_err(|e| cpu::HypervisorCpuError::RunVcpu(e.into()))?;
+                        .map_err(|e| cpu::HypervisorCpuError::RunVcpu(e))?;
 
                     Ok(cpu::VmExit::Ignore)
                 }
@@ -776,9 +779,12 @@ impl cpu::Vcpu for MshvVcpu {
                     let num_ranges = info.__bindgen_anon_1.range_count();
                     assert!(num_ranges >= 1);
                     if num_ranges > 1 {
-                        return Err(cpu::HypervisorCpuError::RunVcpu(anyhow!(
-                            "Unhandled VCPU exit(GPA_ATTRIBUTE_INTERCEPT): Expected num_ranges to be 1 but found num_ranges {:?}",
-                            num_ranges
+                        return Err(cpu::HypervisorCpuError::RunVcpu(std::io::Error::new(
+                            std::io::ErrorKind::Other,
+                            format!(
+                                "Unhandled VCPU exit(GPA_ATTRIBUTE_INTERCEPT): Expected num_ranges to be 1 but found num_ranges {:?}",
+                                num_ranges
+                            ),
                         )));
                     }
 
@@ -817,9 +823,7 @@ impl cpu::Vcpu for MshvVcpu {
 
                     self.vm_fd
                         .modify_gpa_host_access(&gpa_list[0])
-                        .map_err(|e| cpu::HypervisorCpuError::RunVcpu(anyhow!(
-                            "Unhandled VCPU exit: attribute intercept - couldn't modify host access {}", e
-                        )))?;
+                        .map_err(|e| cpu::HypervisorCpuError::RunVcpu(std::io::Error::new(std::io::ErrorKind::Other, format!("Unhandled VCPU exit: attribute intercept - couldn't modify host access {}", e))))?;
                     // Guest is revoking the shared access, so we need to update the bitmap
                     self.host_access_pages.rcu(|_bitmap| {
                         let bm = self.host_access_pages.load().as_ref().clone();
@@ -834,10 +838,12 @@ impl cpu::Vcpu for MshvVcpu {
                     let gva = info.guest_virtual_address;
                     let gpa = info.guest_physical_address;
 
-                    Err(cpu::HypervisorCpuError::RunVcpu(anyhow!(
-                        "Unhandled VCPU exit: Unaccepted GPA({:x}) found at GVA({:x})",
-                        gpa,
-                        gva,
+                    Err(cpu::HypervisorCpuError::RunVcpu(std::io::Error::new(
+                        std::io::ErrorKind::Other,
+                        format!(
+                            "Unhandled VCPU exit: Unaccepted GPA({:x}) found at GVA({:x})",
+                            gpa, gva,
+                        ),
                     )))
                 }
                 #[cfg(target_arch = "x86_64")]
@@ -911,7 +917,7 @@ impl cpu::Vcpu for MshvVcpu {
                             let arr_reg_name_value =
                                 [(hv_register_name_HV_X64_REGISTER_GHCB, ghcb_response)];
                             set_registers_64!(self.fd, arr_reg_name_value)
-                                .map_err(|e| cpu::HypervisorCpuError::SetRegister(e.into()))?;
+                                .map_err(|e| cpu::HypervisorCpuError::SetRegister(e))?;
                         }
                         GHCB_INFO_REGISTER_REQUEST => {
                             let mut ghcb_gpa = hv_x64_register_sev_ghcb::default();
@@ -935,7 +941,7 @@ impl cpu::Vcpu for MshvVcpu {
                             };
 
                             set_registers_64!(self.fd, reg_name_value)
-                                .map_err(|e| cpu::HypervisorCpuError::SetRegister(e.into()))?;
+                                .map_err(|e| cpu::HypervisorCpuError::SetRegister(e))?;
 
                             let mut resp_ghcb_msr = svm_ghcb_msr::default();
                             // SAFETY: Accessing a union element from bindgen generated bindings.
@@ -957,7 +963,7 @@ impl cpu::Vcpu for MshvVcpu {
                             };
 
                             set_registers_64!(self.fd, reg_name_value)
-                                .map_err(|e| cpu::HypervisorCpuError::SetRegister(e.into()))?;
+                                .map_err(|e| cpu::HypervisorCpuError::SetRegister(e))?;
                         }
                         GHCB_INFO_SEV_INFO_REQUEST => {
                             let sev_cpuid_function = 0x8000_001F;
@@ -980,7 +986,7 @@ impl cpu::Vcpu for MshvVcpu {
                             let arr_reg_name_value =
                                 [(hv_register_name_HV_X64_REGISTER_GHCB, ghcb_response)];
                             set_registers_64!(self.fd, arr_reg_name_value)
-                                .map_err(|e| cpu::HypervisorCpuError::SetRegister(e.into()))?;
+                                .map_err(|e| cpu::HypervisorCpuError::SetRegister(e))?;
                         }
                         GHCB_INFO_NORMAL => {
                             let exit_code =
@@ -1022,7 +1028,7 @@ impl cpu::Vcpu for MshvVcpu {
                                                 )]
                                             };
                                             set_registers_64!(self.fd, reg_names).map_err(|e| {
-                                                cpu::HypervisorCpuError::SetRegister(e.into())
+                                                cpu::HypervisorCpuError::SetRegister(e)
                                             })?;
 
                                             set_svm_field_u64_ptr!(ghcb, exit_info2, exit_info2);
@@ -1083,17 +1089,15 @@ impl cpu::Vcpu for MshvVcpu {
 
                                     if is_write {
                                         if let Some(vm_ops) = &self.vm_ops {
-                                            vm_ops.pio_write(port.into(), &data[..len]).map_err(
-                                                |e| cpu::HypervisorCpuError::RunVcpu(e.into()),
-                                            )?;
+                                            vm_ops
+                                                .pio_write(port.into(), &data[..len])
+                                                .map_err(|e| cpu::HypervisorCpuError::RunVcpu(e))?;
                                         }
                                     } else {
                                         if let Some(vm_ops) = &self.vm_ops {
                                             vm_ops
                                                 .pio_read(port.into(), &mut data[..len])
-                                                .map_err(|e| {
-                                                    cpu::HypervisorCpuError::RunVcpu(e.into())
-                                                })?;
+                                                .map_err(|e| cpu::HypervisorCpuError::RunVcpu(e))?;
                                         }
                                         set_svm_field_u64_ptr!(ghcb, rax, u64::from_le_bytes(data));
                                     }
@@ -1112,9 +1116,9 @@ impl cpu::Vcpu for MshvVcpu {
 
                                     let mut data: Vec<u8> = vec![0; data_len];
                                     if let Some(vm_ops) = &self.vm_ops {
-                                        vm_ops.mmio_read(src_gpa, &mut data).map_err(|e| {
-                                            cpu::HypervisorCpuError::RunVcpu(e.into())
-                                        })?;
+                                        vm_ops
+                                            .mmio_read(src_gpa, &mut data)
+                                            .map_err(|e| cpu::HypervisorCpuError::RunVcpu(e))?;
                                     }
                                     // Copy the data to the shared buffer of the GHCB page
                                     let mut buffer_data = [0; 8];
@@ -1141,9 +1145,9 @@ impl cpu::Vcpu for MshvVcpu {
                                     data.copy_from_slice(&bytes_shared_ghcb[..data_len]);
 
                                     if let Some(vm_ops) = &self.vm_ops {
-                                        vm_ops.mmio_write(dst_gpa, &data).map_err(|e| {
-                                            cpu::HypervisorCpuError::RunVcpu(e.into())
-                                        })?;
+                                        vm_ops
+                                            .mmio_write(dst_gpa, &data)
+                                            .map_err(|e| cpu::HypervisorCpuError::RunVcpu(e))?;
                                     }
 
                                     // Clear the SW_EXIT_INFO1 register to indicate no error
@@ -1179,7 +1183,7 @@ impl cpu::Vcpu for MshvVcpu {
                                         mshv_issue_psp_guest_request { req_gpa, rsp_gpa };
                                     self.vm_fd
                                         .psp_issue_guest_request(&mshv_psp_req)
-                                        .map_err(|e| cpu::HypervisorCpuError::RunVcpu(e.into()))?;
+                                        .map_err(|e| cpu::HypervisorCpuError::RunVcpu(e))?;
 
                                     debug!(
                                         "SNP guest request: req_gpa {:0x} rsp_gpa {:0x}",
@@ -1204,7 +1208,7 @@ impl cpu::Vcpu for MshvVcpu {
                                     };
                                     self.vm_fd
                                         .sev_snp_ap_create(&mshv_ap_create_req)
-                                        .map_err(|e| cpu::HypervisorCpuError::RunVcpu(e.into()))?;
+                                        .map_err(|e| cpu::HypervisorCpuError::RunVcpu(e))?;
 
                                     // Clear the SW_EXIT_INFO1 register to indicate no error
                                     self.clear_swexit_info1()?;
@@ -1219,17 +1223,17 @@ impl cpu::Vcpu for MshvVcpu {
 
                     Ok(cpu::VmExit::Ignore)
                 }
-                exit => Err(cpu::HypervisorCpuError::RunVcpu(anyhow!(
-                    "Unhandled VCPU exit {:?}",
-                    exit
+                exit => Err(cpu::HypervisorCpuError::RunVcpu(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    format!("Unhandled VCPU exit {:?}", exit),
                 ))),
             },
 
             Err(e) => match e.errno() {
                 libc::EAGAIN | libc::EINTR => Ok(cpu::VmExit::Ignore),
-                _ => Err(cpu::HypervisorCpuError::RunVcpu(anyhow!(
-                    "VCPU error {:?}",
-                    e
+                _ => Err(cpu::HypervisorCpuError::RunVcpu(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    format!("VCPU error {:?}", e),
                 ))),
             },
         }
@@ -1252,7 +1256,7 @@ impl cpu::Vcpu for MshvVcpu {
             regs::PSTATE_FAULT_BITS_64,
         )];
         set_registers_64!(self.fd, arr_reg_name_value)
-            .map_err(|e| cpu::HypervisorCpuError::SetRegister(e.into()))?;
+            .map_err(|e| cpu::HypervisorCpuError::SetRegister(e))?;
 
         if cpu_id == 0 {
             let arr_reg_name_value = [
@@ -1260,7 +1264,7 @@ impl cpu::Vcpu for MshvVcpu {
                 (hv_register_name_HV_ARM64_REGISTER_X0, fdt_start),
             ];
             set_registers_64!(self.fd, arr_reg_name_value)
-                .map_err(|e| cpu::HypervisorCpuError::SetRegister(e.into()))?;
+                .map_err(|e| cpu::HypervisorCpuError::SetRegister(e))?;
         }
 
         Ok(())
@@ -1276,7 +1280,7 @@ impl cpu::Vcpu for MshvVcpu {
         }];
         self.fd
             .get_reg(&mut reg_assocs)
-            .map_err(|e| cpu::HypervisorCpuError::GetRegister(e.into()))?;
+            .map_err(|e| cpu::HypervisorCpuError::GetRegister(e))?;
 
         // SAFETY: Accessing a union element from bindgen generated definition.
         let res = unsafe { reg_assocs[0].value.reg64 };
@@ -1324,12 +1328,16 @@ impl cpu::Vcpu for MshvVcpu {
     ///
     fn set_cpuid2(&self, cpuid: &[CpuIdEntry]) -> cpu::Result<()> {
         let cpuid: Vec<mshv_bindings::hv_cpuid_entry> = cpuid.iter().map(|e| (*e).into()).collect();
-        let mshv_cpuid = <CpuId>::from_entries(&cpuid)
-            .map_err(|_| cpu::HypervisorCpuError::SetCpuid(anyhow!("failed to create CpuId")))?;
+        let mshv_cpuid = <CpuId>::from_entries(&cpuid).map_err(|_| {
+            cpu::HypervisorCpuError::SetCpuid(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                "failed to create CpuId",
+            ))
+        })?;
 
         self.fd
             .register_intercept_result_cpuid(&mshv_cpuid)
-            .map_err(|e| cpu::HypervisorCpuError::SetCpuid(e.into()))
+            .map_err(|e| cpu::HypervisorCpuError::SetCpuid(e))
     }
 
     #[cfg(target_arch = "x86_64")]
@@ -1353,7 +1361,7 @@ impl cpu::Vcpu for MshvVcpu {
     ) -> cpu::Result<[u32; 4]> {
         self.fd
             .get_cpuid_values(function, index, xfem, xss)
-            .map_err(|e| cpu::HypervisorCpuError::GetCpuidVales(e.into()))
+            .map_err(|e| cpu::HypervisorCpuError::GetCpuidVales(e))
     }
 
     #[cfg(target_arch = "x86_64")]
@@ -1364,7 +1372,7 @@ impl cpu::Vcpu for MshvVcpu {
         Ok(self
             .fd
             .get_lapic()
-            .map_err(|e| cpu::HypervisorCpuError::GetlapicState(e.into()))?
+            .map_err(|e| cpu::HypervisorCpuError::GetlapicState(e))?
             .into())
     }
 
@@ -1376,7 +1384,7 @@ impl cpu::Vcpu for MshvVcpu {
         let lapic: mshv_bindings::LapicState = (*lapic).clone().into();
         self.fd
             .set_lapic(&lapic)
-            .map_err(|e| cpu::HypervisorCpuError::SetLapicState(e.into()))
+            .map_err(|e| cpu::HypervisorCpuError::SetLapicState(e))
     }
 
     ///
@@ -1410,14 +1418,14 @@ impl cpu::Vcpu for MshvVcpu {
         if self.vp_index == 0 {
             self.fd
                 .set_misc_regs(&state.misc)
-                .map_err(|e| cpu::HypervisorCpuError::SetMiscRegs(e.into()))?
+                .map_err(|e| cpu::HypervisorCpuError::SetMiscRegs(e))?
         }
         self.fd
             .set_debug_regs(&state.dbg)
-            .map_err(|e| cpu::HypervisorCpuError::SetDebugRegs(e.into()))?;
+            .map_err(|e| cpu::HypervisorCpuError::SetDebugRegs(e))?;
         self.fd
             .set_all_vp_state_components(&mut state.vp_states)
-            .map_err(|e| cpu::HypervisorCpuError::SetAllVpStateComponents(e.into()))?;
+            .map_err(|e| cpu::HypervisorCpuError::SetAllVpStateComponents(e))?;
         Ok(())
     }
 
@@ -1444,15 +1452,15 @@ impl cpu::Vcpu for MshvVcpu {
         let misc = self
             .fd
             .get_misc_regs()
-            .map_err(|e| cpu::HypervisorCpuError::GetMiscRegs(e.into()))?;
+            .map_err(|e| cpu::HypervisorCpuError::GetMiscRegs(e))?;
         let dbg = self
             .fd
             .get_debug_regs()
-            .map_err(|e| cpu::HypervisorCpuError::GetDebugRegs(e.into()))?;
+            .map_err(|e| cpu::HypervisorCpuError::GetDebugRegs(e))?;
         let vp_states = self
             .fd
             .get_all_vp_state_components()
-            .map_err(|e| cpu::HypervisorCpuError::GetAllVpStateComponents(e.into()))?;
+            .map_err(|e| cpu::HypervisorCpuError::GetAllVpStateComponents(e))?;
 
         Ok(VcpuMshvState {
             msrs,
@@ -1484,7 +1492,7 @@ impl cpu::Vcpu for MshvVcpu {
         let r = self
             .fd
             .translate_gva(gva, flags)
-            .map_err(|e| cpu::HypervisorCpuError::TranslateVirtualAddress(e.into()))?;
+            .map_err(|e| cpu::HypervisorCpuError::TranslateVirtualAddress(e))?;
 
         let gpa = r.0;
         // SAFETY: r is valid, otherwise this function will have returned
@@ -1523,7 +1531,7 @@ impl cpu::Vcpu for MshvVcpu {
 
         self.fd
             .set_sev_control_register(sev_control_reg)
-            .map_err(|e| cpu::HypervisorCpuError::SetSevControlRegister(e.into()))
+            .map_err(|e| cpu::HypervisorCpuError::SetSevControlRegister(e))
     }
     #[cfg(target_arch = "x86_64")]
     ///
@@ -1540,7 +1548,7 @@ impl cpu::Vcpu for MshvVcpu {
         };
         self.vm_fd
             .request_virtual_interrupt(&cfg)
-            .map_err(|e| cpu::HypervisorCpuError::Nmi(e.into()))
+            .map_err(|e| cpu::HypervisorCpuError::Nmi(e))
     }
     ///
     /// Set the GICR base address for the vcpu.
@@ -1556,7 +1564,7 @@ impl cpu::Vcpu for MshvVcpu {
             gicr_base_addr,
         )];
         set_registers_64!(self.fd, arr_reg_name_value)
-            .map_err(|e| cpu::HypervisorCpuError::SetRegister(e.into()))?;
+            .map_err(|e| cpu::HypervisorCpuError::SetRegister(e))?;
 
         Ok(())
     }
@@ -1595,7 +1603,7 @@ impl MshvVcpu {
         };
 
         set_registers_64!(self.fd, reg_name_value)
-            .map_err(|e| cpu::HypervisorCpuError::SetRegister(e.into()))?;
+            .map_err(|e| cpu::HypervisorCpuError::SetRegister(e))?;
 
         Ok(())
     }
@@ -1606,7 +1614,7 @@ impl MshvVcpu {
     fn get_xcrs(&self) -> cpu::Result<ExtendedControlRegisters> {
         self.fd
             .get_xcrs()
-            .map_err(|e| cpu::HypervisorCpuError::GetXcsr(e.into()))
+            .map_err(|e| cpu::HypervisorCpuError::GetXcsr(e))
     }
 
     #[cfg(target_arch = "x86_64")]
@@ -1616,7 +1624,7 @@ impl MshvVcpu {
     fn set_xcrs(&self, xcrs: &ExtendedControlRegisters) -> cpu::Result<()> {
         self.fd
             .set_xcrs(xcrs)
-            .map_err(|e| cpu::HypervisorCpuError::SetXcsr(e.into()))
+            .map_err(|e| cpu::HypervisorCpuError::SetXcsr(e))
     }
 
     #[cfg(target_arch = "x86_64")]
@@ -1627,7 +1635,7 @@ impl MshvVcpu {
     fn get_vcpu_events(&self) -> cpu::Result<VcpuEvents> {
         self.fd
             .get_vcpu_events()
-            .map_err(|e| cpu::HypervisorCpuError::GetVcpuEvents(e.into()))
+            .map_err(|e| cpu::HypervisorCpuError::GetVcpuEvents(e))
     }
 
     #[cfg(target_arch = "x86_64")]
@@ -1638,7 +1646,7 @@ impl MshvVcpu {
     fn set_vcpu_events(&self, events: &VcpuEvents) -> cpu::Result<()> {
         self.fd
             .set_vcpu_events(events)
-            .map_err(|e| cpu::HypervisorCpuError::SetVcpuEvents(e.into()))
+            .map_err(|e| cpu::HypervisorCpuError::SetVcpuEvents(e))
     }
 
     ///
@@ -1672,7 +1680,7 @@ impl MshvVcpu {
             };
             self.fd
                 .gpa_write(&mut rw_gpa_arg)
-                .map_err(|e| cpu::HypervisorCpuError::GpaWrite(e.into()))?;
+                .map_err(|e| cpu::HypervisorCpuError::GpaWrite(e))?;
         }
 
         Ok(())
@@ -1710,7 +1718,7 @@ impl MshvVcpu {
                 (hv_register_name_HV_X64_REGISTER_RAX, ret_rax),
             ];
             set_registers_64!(self.fd, arr_reg_name_value)
-                .map_err(|e| cpu::HypervisorCpuError::SetRegister(e.into()))?;
+                .map_err(|e| cpu::HypervisorCpuError::SetRegister(e))?;
         }
         Ok(())
     }

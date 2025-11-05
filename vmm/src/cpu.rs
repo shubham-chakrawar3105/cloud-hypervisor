@@ -112,11 +112,11 @@ pub const CPU_MANAGER_ACPI_SIZE: usize = 0xc;
 
 #[derive(Debug, Error)]
 pub enum Error {
-    #[error("Error creating vCPU")]
-    VcpuCreate(#[source] anyhow::Error),
+    #[error("Error creating vCPU: {0}")]
+    VcpuCreate(String),
 
     #[error("Error running vCPU")]
-    VcpuRun(#[source] anyhow::Error),
+    VcpuRun(#[from] hypervisor::HypervisorCpuError),
 
     #[error("Error spawning vCPU thread")]
     VcpuSpawn(#[source] io::Error),
@@ -168,8 +168,8 @@ pub enum Error {
     #[error("Cannot apply seccomp filter")]
     ApplySeccompFilter(#[source] seccompiler::Error),
 
-    #[error("Error starting vCPU after restore")]
-    StartRestoreVcpu(#[source] anyhow::Error),
+    #[error("Error starting vCPU after restore: {0}")]
+    StartRestoreVcpu(String),
 
     #[error("Unexpected VmExit")]
     UnexpectedVmExit,
@@ -190,12 +190,12 @@ pub enum Error {
     CpuDebug(#[source] hypervisor::HypervisorCpuError),
 
     #[cfg(feature = "guest_debug")]
-    #[error("Error translating virtual address")]
-    TranslateVirtualAddress(#[source] anyhow::Error),
+    #[error("Error translating virtual address: {0}")]
+    TranslateVirtualAddress(String),
 
     #[cfg(target_arch = "x86_64")]
-    #[error("Error setting up AMX")]
-    AmxEnable(#[source] anyhow::Error),
+    #[error("Error setting up AMX: {0}")]
+    AmxEnable(String),
 
     #[error("Maximum number of vCPUs {0} exceeds host limit {1}")]
     MaximumVcpusExceeded(u32, u32),
@@ -419,7 +419,7 @@ impl Vcpu {
     ) -> Result<Self> {
         let vcpu = vm
             .create_vcpu(apic_id, vm_ops)
-            .map_err(|e| Error::VcpuCreate(e.into()))?;
+            .map_err(|e| Error::VcpuCreate(e.to_string()))?;
         // Initially the cpuid per vCPU is the one supported by this VM.
         Ok(Vcpu {
             vcpu,
@@ -787,7 +787,9 @@ impl CpuManager {
             };
 
             if amx_tile != 0 {
-                return Err(Error::AmxEnable(anyhow!("Guest AMX usage not supported")));
+                return Err(Error::AmxEnable(
+                    "Guest AMX usage not supported".to_string(),
+                ));
             } else {
                 let mut mask: usize = 0;
                 // SAFETY: Syscall with valid parameters. We use a raw mutable pointer to
@@ -801,7 +803,9 @@ impl CpuManager {
                     )
                 };
                 if result != 0 || (mask & XFEATURE_XTILEDATA_MASK) != XFEATURE_XTILEDATA_MASK {
-                    return Err(Error::AmxEnable(anyhow!("Guest AMX usage not supported")));
+                    return Err(Error::AmxEnable(
+                        "Guest AMX usage not supported".to_string(),
+                    ));
                 }
             }
         }
@@ -909,11 +913,11 @@ impl CpuManager {
             vcpu.init(self.vm.as_ref())?;
 
             let state: CpuState = snapshot.to_state().map_err(|e| {
-                Error::VcpuCreate(anyhow!("Could not get vCPU state from snapshot {e:?}"))
+                Error::VcpuCreate(format!("Could not get vCPU state from snapshot {e:?}"))
             })?;
             vcpu.vcpu
                 .set_state(&state)
-                .map_err(|e| Error::VcpuCreate(anyhow!("Could not set the vCPU state {e:?}")))?;
+                .map_err(|e| Error::VcpuCreate(format!("Could not set the vCPU state {e:?}")))?;
 
             vcpu.saved_state = Some(state);
         }
@@ -1260,7 +1264,7 @@ impl CpuManager {
                                 },
 
                                 Err(e) => {
-                                    error!("VCPU generated error: {:?}", Error::VcpuRun(e.into()));
+                                    error!("VCPU generated error: {:?}", Error::VcpuRun(e));
                                     vcpu_run_interrupted.store(true, Ordering::SeqCst);
                                     exit_evt.write(1).unwrap();
                                     break;
@@ -1384,7 +1388,7 @@ impl CpuManager {
     pub fn start_restored_vcpus(&mut self) -> Result<()> {
         self.activate_vcpus(self.vcpus.len() as u32, false, Some(true))
             .map_err(|e| {
-                Error::StartRestoreVcpu(anyhow!("Failed to start restored vCPUs: {e:#?}"))
+                Error::StartRestoreVcpu(format!("Failed to start restored vCPUs: {e:#?}"))
             })?;
 
         Ok(())
@@ -1857,7 +1861,7 @@ impl CpuManager {
             .unwrap()
             .vcpu
             .translate_gva(gva, /* flags: unused */ 0)
-            .map_err(|e| Error::TranslateVirtualAddress(e.into()))?;
+            .map_err(|e| Error::TranslateVirtualAddress(e.to_string()))?;
         Ok(gpa)
     }
 
@@ -1889,19 +1893,19 @@ impl CpuManager {
             .unwrap()
             .vcpu
             .get_sys_reg(TCR_EL1)
-            .map_err(|e| Error::TranslateVirtualAddress(e.into()))?;
+            .map_err(|e| Error::TranslateVirtualAddress(e.to_string()))?;
         let ttbr1_el1: u64 = self.vcpus[usize::from(cpu_id)]
             .lock()
             .unwrap()
             .vcpu
             .get_sys_reg(TTBR1_EL1)
-            .map_err(|e| Error::TranslateVirtualAddress(e.into()))?;
+            .map_err(|e| Error::TranslateVirtualAddress(e.to_string()))?;
         let id_aa64mmfr0_el1: u64 = self.vcpus[usize::from(cpu_id)]
             .lock()
             .unwrap()
             .vcpu
             .get_sys_reg(ID_AA64MMFR0_EL1)
-            .map_err(|e| Error::TranslateVirtualAddress(e.into()))?;
+            .map_err(|e| Error::TranslateVirtualAddress(e.to_string()))?;
 
         // Bit 55 of the VA determines the range, high (0xFFFxxx...)
         // or low (0x000xxx...).
@@ -1950,9 +1954,9 @@ impl CpuManager {
             5 => 48,
             6 => 52,
             _ => {
-                return Err(Error::TranslateVirtualAddress(anyhow!(format!(
+                return Err(Error::TranslateVirtualAddress(format!(
                     "PA range not supported {pa_range}"
-                ))));
+                )));
             }
         };
 
@@ -1987,7 +1991,7 @@ impl CpuManager {
             guest_memory
                 .memory()
                 .read(&mut buf, GuestAddress(descaddr))
-                .map_err(|e| Error::TranslateVirtualAddress(e.into()))?;
+                .map_err(|e| Error::TranslateVirtualAddress(e.to_string()))?;
             let descriptor = u64::from_le_bytes(buf);
 
             descaddr = descriptor & descaddrmask;

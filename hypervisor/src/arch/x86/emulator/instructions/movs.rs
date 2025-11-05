@@ -24,17 +24,17 @@ macro_rules! movs {
             let mut count: u64 = if insn.has_rep_prefix() {
                 state
                     .read_reg(Register::ECX)
-                    .map_err(|e| EmulationError::InvalidOperand(anyhow!(e)))?
+                    .map_err(|e| EmulationError::InvalidOperand(format!(e)))?
             } else {
                 1
             };
 
             let mut rsi = state
                 .read_reg(Register::RSI)
-                .map_err(|e| EmulationError::InvalidOperand(anyhow!(e)))?;
+                .map_err(|e| EmulationError::InvalidOperand(format!(e)))?;
             let mut rdi = state
                 .read_reg(Register::RDI)
-                .map_err(|e| EmulationError::InvalidOperand(anyhow!(e)))?;
+                .map_err(|e| EmulationError::InvalidOperand(format!(e)))?;
 
             let df = (state.flags() & DF) != 0;
             let len = std::mem::size_of::<$bound>();
@@ -44,10 +44,10 @@ macro_rules! movs {
 
                 let src = state
                     .linearize(Register::DS, rsi, false)
-                    .map_err(|e| EmulationError::InvalidOperand(anyhow!(e)))?;
+                    .map_err(|e| EmulationError::InvalidOperand(format!(e)))?;
                 let dst = state
                     .linearize(Register::ES, rdi, true)
-                    .map_err(|e| EmulationError::InvalidOperand(anyhow!(e)))?;
+                    .map_err(|e| EmulationError::InvalidOperand(format!(e)))?;
 
                 platform
                     .read_memory(src, &mut memory[0..len])
@@ -68,14 +68,14 @@ macro_rules! movs {
 
             state
                 .write_reg(Register::RSI, rsi)
-                .map_err(|e| EmulationError::InvalidOperand(anyhow!(e)))?;
+                .map_err(|e| EmulationError::InvalidOperand(format!(e)))?;
             state
                 .write_reg(Register::RDI, rdi)
-                .map_err(|e| EmulationError::InvalidOperand(anyhow!(e)))?;
+                .map_err(|e| EmulationError::InvalidOperand(format!(e)))?;
             if insn.has_rep_prefix() {
                 state
                     .write_reg(Register::ECX, 0)
-                    .map_err(|e| EmulationError::InvalidOperand(anyhow!(e)))?;
+                    .map_err(|e| EmulationError::InvalidOperand(format!(e)))?;
             }
 
             Ok(())

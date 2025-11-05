@@ -6,7 +6,6 @@
 use std::cmp;
 use std::sync::{Arc, Barrier};
 
-use anyhow::anyhow;
 #[cfg(target_arch = "aarch64")]
 use arch::aarch64::layout::{TPM_SIZE, TPM_START};
 #[cfg(target_arch = "x86_64")]
@@ -18,12 +17,10 @@ use vm_device::BusDevice;
 
 #[derive(Error, Debug)]
 pub enum Error {
-    #[error("Emulator doesn't implement min required capabilities")]
-    CheckCaps(#[source] anyhow::Error),
-    #[error("Failed to initialize tpm")]
-    Init(#[source] anyhow::Error),
+    #[error("Emulator error")]
+    Emulator(#[from] tpm::emulator::Error),
 }
-type Result<T> = anyhow::Result<T, Error>;
+type Result<T> = std::result::Result<T, Error>;
 
 #[allow(dead_code)]
 enum LocStateFields {
@@ -220,8 +217,7 @@ pub struct Tpm {
 
 impl Tpm {
     pub fn new(path: String) -> Result<Self> {
-        let emulator = Emulator::new(path)
-            .map_err(|e| Error::Init(anyhow!("Failed while initializing tpm Emulator: {e:?}")))?;
+        let emulator = Emulator::new(path)?;
         let mut tpm = Tpm {
             emulator,
             regs: [0; TPM_CRB_R_MAX],
@@ -329,11 +325,7 @@ impl Tpm {
 
         self.backend_buff_size = cmp::min(cur_buff_size, TPM_CRB_BUFFER_MAX);
 
-        if let Err(e) = self.emulator.startup_tpm(self.backend_buff_size) {
-            return Err(Error::Init(anyhow!(
-                "Failed while running Startup TPM. Error: {e:?}"
-            )));
-        }
+        self.emulator.startup_tpm(self.backend_buff_size)?;
         Ok(())
     }
 }

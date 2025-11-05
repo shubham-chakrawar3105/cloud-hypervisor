@@ -101,7 +101,7 @@ impl<'a> Emulator<'a> {
     pub fn emulate(&mut self) -> Result<(), PlatformError> {
         match self.emulate_with_syndrome() {
             Ok(true) => Ok(()),
-            Ok(false) => Err(PlatformError::InvalidState(anyhow!(
+            Ok(false) => Err(PlatformError::InvalidState(format!(
                 "Failed to decode instruction using syndrome register"
             ))),
             Err(e) => Err(e),

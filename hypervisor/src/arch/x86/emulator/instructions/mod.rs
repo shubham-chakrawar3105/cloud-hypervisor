@@ -24,14 +24,14 @@ fn get_op<T: CpuStateManager>(
     platform: &dyn PlatformEmulator<CpuState = T>,
 ) -> Result<u64, PlatformError> {
     if insn.op_count() < op_index + 1 {
-        return Err(PlatformError::InvalidOperand(anyhow!(
+        return Err(PlatformError::InvalidOperand(format!(
             "Invalid operand {:?}",
             op_index
         )));
     }
 
     if !matches!(op_size, 1 | 2 | 4 | 8) {
-        return Err(PlatformError::InvalidOperand(anyhow!(
+        return Err(PlatformError::InvalidOperand(format!(
             "Invalid operand size {:?}",
             op_size
         )));
@@ -59,7 +59,7 @@ fn get_op<T: CpuStateManager>(
         OpKind::Immediate32 => insn.immediate32() as u64,
         OpKind::Immediate32to64 => insn.immediate32to64() as u64,
         OpKind::Immediate64 => insn.immediate64(),
-        k => return Err(PlatformError::InvalidOperand(anyhow!("{:?}", k))),
+        k => return Err(PlatformError::InvalidOperand(format!("{:?}", k))),
     };
 
     Ok(value)
@@ -74,14 +74,14 @@ fn set_op<T: CpuStateManager>(
     value: u64,
 ) -> Result<(), PlatformError> {
     if insn.op_count() < op_index + 1 {
-        return Err(PlatformError::InvalidOperand(anyhow!(
+        return Err(PlatformError::InvalidOperand(format!(
             "Invalid operand {:?}",
             op_index
         )));
     }
 
     if !matches!(op_size, 1 | 2 | 4 | 8) {
-        return Err(PlatformError::InvalidOperand(anyhow!(
+        return Err(PlatformError::InvalidOperand(format!(
             "Invalid operand size {:?}",
             op_size
         )));
@@ -100,7 +100,7 @@ fn set_op<T: CpuStateManager>(
             let addr = memory_operand_address(insn, state, true)?;
             platform.write_memory(addr, &value.to_le_bytes()[..op_size])?;
         }
-        k => return Err(PlatformError::InvalidOperand(anyhow!("{:?}", k))),
+        k => return Err(PlatformError::InvalidOperand(format!("{:?}", k))),
     };
 
     Ok(())

@@ -7,7 +7,6 @@ use std::any::Any;
 use std::result;
 use std::sync::{Arc, Barrier, Mutex};
 
-use anyhow::anyhow;
 use pci::{
     BarReprogrammingParams, PCI_CONFIGURATION_ID, PciBarConfiguration, PciBarPrefetchable,
     PciBarRegionType, PciClassCode, PciConfiguration, PciDevice, PciDeviceError, PciHeaderType,
@@ -31,10 +30,8 @@ const PVPANIC_CRASH_LOADED: u8 = 1 << 1;
 
 #[derive(Debug, Error)]
 pub enum PvPanicError {
-    #[error("Failed creating PvPanicDevice")]
-    CreatePvPanicDevice(#[source] anyhow::Error),
-    #[error("Failed to retrieve PciConfigurationState")]
-    RetrievePciConfigurationState(#[source] anyhow::Error),
+    #[error("Migration error")]
+    Migration(#[from] MigratableError),
 }
 
 #[derive(Copy, Clone)]
@@ -66,11 +63,7 @@ pub struct PvPanicDeviceState {
 impl PvPanicDevice {
     pub fn new(id: String, snapshot: Option<Snapshot>) -> Result<Self, PvPanicError> {
         let pci_configuration_state =
-            vm_migration::state_from_id(snapshot.as_ref(), PCI_CONFIGURATION_ID).map_err(|e| {
-                PvPanicError::RetrievePciConfigurationState(anyhow!(
-                    "Failed to get PciConfigurationState from Snapshot: {e}"
-                ))
-            })?;
+            vm_migration::state_from_id(snapshot.as_ref(), PCI_CONFIGURATION_ID)?;
 
         let mut configuration = PciConfiguration::new(
             PVPANIC_VENDOR_ID,

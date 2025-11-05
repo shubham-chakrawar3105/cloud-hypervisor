@@ -27,11 +27,11 @@ impl MshvEmulatorContext<'_> {
         let (gpa, result_code) = self
             .vcpu
             .translate_gva(gva, flags.into())
-            .map_err(|e| PlatformError::TranslateVirtualAddress(anyhow!(e)))?;
+            .map_err(|e| PlatformError::TranslateVirtualAddress(format!(e)))?;
 
         match result_code {
             hv_translate_gva_result_code_HV_TRANSLATE_GVA_SUCCESS => Ok(gpa),
-            _ => Err(PlatformError::TranslateVirtualAddress(anyhow!(result_code))),
+            _ => Err(PlatformError::TranslateVirtualAddress(format!(result_code))),
         }
     }
 
@@ -141,10 +141,9 @@ impl PlatformEmulator for MshvEmulatorContext<'_> {
 
     fn cpu_state(&self, cpu_id: usize) -> Result<Self::CpuState, PlatformError> {
         if cpu_id != self.vcpu.vp_index as usize {
-            return Err(PlatformError::GetCpuStateFailure(anyhow!(
+            return Err(PlatformError::GetCpuStateFailure(format!(
                 "CPU id mismatch {:?} {:?}",
-                cpu_id,
-                self.vcpu.vp_index
+                cpu_id, self.vcpu.vp_index
             )));
         }
 
@@ -165,10 +164,9 @@ impl PlatformEmulator for MshvEmulatorContext<'_> {
 
     fn set_cpu_state(&self, cpu_id: usize, state: Self::CpuState) -> Result<(), PlatformError> {
         if cpu_id != self.vcpu.vp_index as usize {
-            return Err(PlatformError::SetCpuStateFailure(anyhow!(
+            return Err(PlatformError::SetCpuStateFailure(format!(
                 "CPU id mismatch {:?} {:?}",
-                cpu_id,
-                self.vcpu.vp_index
+                cpu_id, self.vcpu.vp_index
             )));
         }
 

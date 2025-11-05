@@ -1504,7 +1504,7 @@ impl cpu::Vcpu for KvmVcpu {
                 let mut bytes = [0_u8; 8];
                 self.fd
                     .get_one_reg(riscv64_reg_id!(KVM_REG_RISCV_CORE, off), &mut bytes)
-                    .map_err(|e| cpu::HypervisorCpuError::GetRiscvCoreRegister(e.into()))?;
+                    .map_err(|e| cpu::HypervisorCpuError::GetRiscvCoreRegister(e))?;
                 state.mode = u64::from_le_bytes(bytes);
             };
             ($reg_name:ident) => {
@@ -1512,7 +1512,7 @@ impl cpu::Vcpu for KvmVcpu {
                 let mut bytes = [0_u8; 8];
                 self.fd
                     .get_one_reg(riscv64_reg_id!(KVM_REG_RISCV_CORE, off), &mut bytes)
-                    .map_err(|e| cpu::HypervisorCpuError::GetRiscvCoreRegister(e.into()))?;
+                    .map_err(|e| cpu::HypervisorCpuError::GetRiscvCoreRegister(e))?;
                 state.regs.$reg_name = u64::from_le_bytes(bytes);
             };
         }
@@ -1687,7 +1687,7 @@ impl cpu::Vcpu for KvmVcpu {
                         riscv64_reg_id!(KVM_REG_RISCV_CORE, off),
                         &kvm_regs_state.mode.to_le_bytes(),
                     )
-                    .map_err(|e| cpu::HypervisorCpuError::SetRiscvCoreRegister(e.into()))?;
+                    .map_err(|e| cpu::HypervisorCpuError::SetRiscvCoreRegister(e))?;
             };
             ($reg_name:ident) => {
                 let off = offset_of!(kvm_riscv_core, regs.$reg_name);
@@ -1696,7 +1696,7 @@ impl cpu::Vcpu for KvmVcpu {
                         riscv64_reg_id!(KVM_REG_RISCV_CORE, off),
                         &kvm_regs_state.regs.$reg_name.to_le_bytes(),
                     )
-                    .map_err(|e| cpu::HypervisorCpuError::SetRiscvCoreRegister(e.into()))?;
+                    .map_err(|e| cpu::HypervisorCpuError::SetRiscvCoreRegister(e))?;
             };
         }
 
@@ -1790,8 +1790,12 @@ impl cpu::Vcpu for KvmVcpu {
     fn set_cpuid2(&self, cpuid: &[CpuIdEntry]) -> cpu::Result<()> {
         let cpuid: Vec<kvm_bindings::kvm_cpuid_entry2> =
             cpuid.iter().map(|e| (*e).into()).collect();
-        let kvm_cpuid = <CpuId>::from_entries(&cpuid)
-            .map_err(|_| cpu::HypervisorCpuError::SetCpuid(anyhow!("failed to create CpuId")))?;
+        let kvm_cpuid = <CpuId>::from_entries(&cpuid).map_err(|_| {
+            cpu::HypervisorCpuError::SetCpuid(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                "failed to create CpuId",
+            ))
+        })?;
 
         self.fd
             .set_cpuid2(&kvm_cpuid)
@@ -1920,9 +1924,9 @@ impl cpu::Vcpu for KvmVcpu {
             .map_err(|e| cpu::HypervisorCpuError::TranslateVirtualAddress(e.into()))?;
         // tr.valid is set if the GVA is mapped to valid GPA.
         match tr.valid {
-            0 => Err(cpu::HypervisorCpuError::TranslateVirtualAddress(anyhow!(
-                "Invalid GVA: {gva:#x}"
-            ))),
+            0 => Err(cpu::HypervisorCpuError::TranslateVirtualAddress(
+                std::io::Error::new(std::io::ErrorKind::Other, format!("Invalid GVA: {gva:#x}")),
+            )),
             _ => Ok((tr.physical_address, 0)),
         }
     }
@@ -1970,11 +1974,16 @@ impl cpu::Vcpu for KvmVcpu {
                     } else if event_type == KVM_SYSTEM_EVENT_SHUTDOWN {
                         Ok(cpu::VmExit::Shutdown)
                     } else {
-                        Err(cpu::HypervisorCpuError::RunVcpu(anyhow!(
-                            "Unexpected system event with type 0x{:x}, flags 0x{:x?}",
-                            event_type,
-                            flags
-                        )))
+                        Err(cpu::HypervisorCpuError::RunVcpu(
+                            std::io::Error::new(
+                                std::io::ErrorKind::Other,
+                                format!(
+                                    "Unexpected system event with type 0x{:x}, flags 0x{:x?}",
+                                    event_type, flags
+                                ),
+                            )
+                            .into(),
+                        ))
                     }
                 }
 
@@ -2003,16 +2012,21 @@ impl cpu::Vcpu for KvmVcpu {
                 VcpuExit::Unsupported(KVM_EXIT_TDX) => Ok(cpu::VmExit::Tdx),
                 VcpuExit::Debug(_) => Ok(cpu::VmExit::Debug),
 
-                r => Err(cpu::HypervisorCpuError::RunVcpu(anyhow!(
-                    "Unexpected exit reason on vcpu run: {r:?}"
-                ))),
+                r => Err(cpu::HypervisorCpuError::RunVcpu(
+                    std::io::Error::new(
+                        std::io::ErrorKind::Other,
+                        format!("Unexpected exit reason on vcpu run: {r:?}"),
+                    )
+                    .into(),
+                )),
             },
 
             Err(ref e) => match e.errno() {
                 libc::EAGAIN | libc::EINTR => Ok(cpu::VmExit::Ignore),
-                _ => Err(cpu::HypervisorCpuError::RunVcpu(anyhow!(
-                    "VCPU error {e:?}"
-                ))),
+                _ => Err(cpu::HypervisorCpuError::RunVcpu(
+                    std::io::Error::new(std::io::ErrorKind::Other, format!("VCPU error {e:?}"))
+                        .into(),
+                )),
             },
         }
     }
@@ -2270,7 +2284,7 @@ impl cpu::Vcpu for KvmVcpu {
                 riscv64_reg_id!(KVM_REG_RISCV_CORE, a0),
                 &u64::from(cpu_id).to_le_bytes(),
             )
-            .map_err(|e| cpu::HypervisorCpuError::SetRiscvCoreRegister(e.into()))?;
+            .map_err(|e| cpu::HypervisorCpuError::SetRiscvCoreRegister(e))?;
 
         // Setting the PC (Processor Counter) to the current program address (kernel address).
         let pc = offset_of!(kvm_riscv_core, regs.pc);
@@ -2279,7 +2293,7 @@ impl cpu::Vcpu for KvmVcpu {
                 riscv64_reg_id!(KVM_REG_RISCV_CORE, pc),
                 &boot_ip.to_le_bytes(),
             )
-            .map_err(|e| cpu::HypervisorCpuError::SetRiscvCoreRegister(e.into()))?;
+            .map_err(|e| cpu::HypervisorCpuError::SetRiscvCoreRegister(e))?;
 
         // Last mandatory thing to set -> the address pointing to the FDT (also called DTB).
         //
@@ -2292,7 +2306,7 @@ impl cpu::Vcpu for KvmVcpu {
                 riscv64_reg_id!(KVM_REG_RISCV_CORE, a1),
                 &fdt_start.to_le_bytes(),
             )
-            .map_err(|e| cpu::HypervisorCpuError::SetRiscvCoreRegister(e.into()))?;
+            .map_err(|e| cpu::HypervisorCpuError::SetRiscvCoreRegister(e))?;
 
         Ok(())
     }

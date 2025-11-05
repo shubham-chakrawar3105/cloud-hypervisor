@@ -41,106 +41,106 @@ pub enum HypervisorCpuError {
     /// Setting standard registers error
     ///
     #[error("Failed to set standard register")]
-    SetStandardRegs(#[source] anyhow::Error),
+    SetStandardRegs(#[source] std::io::Error),
     ///
     /// Setting standard registers error
     ///
     #[error("Failed to get standard registers")]
-    GetStandardRegs(#[source] anyhow::Error),
+    GetStandardRegs(#[source] std::io::Error),
     ///
     /// Setting special register error
     ///
     #[error("Failed to set special registers")]
-    SetSpecialRegs(#[source] anyhow::Error),
+    SetSpecialRegs(#[source] std::io::Error),
     ///
     /// Getting standard register error
     ///
     #[error("Failed to get special registers")]
-    GetSpecialRegs(#[source] anyhow::Error),
+    GetSpecialRegs(#[source] std::io::Error),
     ///
     /// Setting floating point registers error
     ///
     #[error("Failed to set floating point registers")]
-    SetFloatingPointRegs(#[source] anyhow::Error),
+    SetFloatingPointRegs(#[source] std::io::Error),
     ///
     /// Getting floating point register error
     ///
     #[error("Failed to get floating points registers")]
-    GetFloatingPointRegs(#[source] anyhow::Error),
+    GetFloatingPointRegs(#[source] std::io::Error),
     ///
     /// Setting Cpuid error
     ///
     #[error("Failed to set Cpuid")]
-    SetCpuid(#[source] anyhow::Error),
+    SetCpuid(#[source] std::io::Error),
     ///
     /// Getting Cpuid error
     ///
     #[error("Failed to get Cpuid")]
-    GetCpuid(#[source] anyhow::Error),
+    GetCpuid(#[source] std::io::Error),
     ///
     /// Setting lapic state error
     ///
     #[error("Failed to set Lapic state")]
-    SetLapicState(#[source] anyhow::Error),
+    SetLapicState(#[source] std::io::Error),
     ///
     /// Getting Lapic state error
     ///
     #[error("Failed to get Lapic state")]
-    GetlapicState(#[source] anyhow::Error),
+    GetlapicState(#[source] std::io::Error),
     ///
     /// Setting MSR entries error
     ///
     #[error("Failed to set Msr entries")]
-    SetMsrEntries(#[source] anyhow::Error),
+    SetMsrEntries(#[source] std::io::Error),
     ///
     /// Getting Msr entries error
     ///
     #[error("Failed to get Msr entries")]
-    GetMsrEntries(#[source] anyhow::Error),
+    GetMsrEntries(#[source] std::io::Error),
     ///
     /// Setting multi-processing  state error
     ///
     #[error("Failed to set MP state")]
-    SetMpState(#[source] anyhow::Error),
+    SetMpState(#[source] std::io::Error),
     ///
     /// Getting multi-processing  state error
     ///
     #[error("Failed to get MP state")]
-    GetMpState(#[source] anyhow::Error),
+    GetMpState(#[source] std::io::Error),
     ///
     /// Setting Saved Processor Extended States error
     ///
     #[cfg(feature = "kvm")]
     #[error("Failed to set Saved Processor Extended States")]
-    SetXsaveState(#[source] anyhow::Error),
+    SetXsaveState(#[source] std::io::Error),
     ///
     /// Getting Saved Processor Extended States error
     ///
     #[cfg(feature = "kvm")]
     #[error("Failed to get Saved Processor Extended States")]
-    GetXsaveState(#[source] anyhow::Error),
+    GetXsaveState(#[source] std::io::Error),
     ///
     /// Getting the VP state components error
     ///
     #[cfg(feature = "mshv")]
     #[error("Failed to get VP State Components")]
-    GetAllVpStateComponents(#[source] anyhow::Error),
+    GetAllVpStateComponents(#[source] std::io::Error),
     ///
     /// Setting the VP state components error
     ///
     #[cfg(feature = "mshv")]
     #[error("Failed to set VP State Components")]
-    SetAllVpStateComponents(#[source] anyhow::Error),
+    SetAllVpStateComponents(#[source] std::io::Error),
     ///
     /// Setting Extended Control Registers error
     ///
     #[error("Failed to set Extended Control Registers")]
-    SetXcsr(#[source] anyhow::Error),
+    SetXcsr(#[source] std::io::Error),
     ///
     /// Getting Extended Control Registers error
     ///
     #[error("Failed to get Extended Control Registers")]
-    GetXcsr(#[source] anyhow::Error),
+    GetXcsr(#[source] std::io::Error),
     ///
     /// Running Vcpu error
     ///
@@ -150,126 +150,126 @@ pub enum HypervisorCpuError {
     /// Getting Vcpu events error
     ///
     #[error("Failed to get Vcpu events")]
-    GetVcpuEvents(#[source] anyhow::Error),
+    GetVcpuEvents(#[source] std::io::Error),
     ///
     /// Setting Vcpu events error
     ///
     #[error("Failed to set Vcpu events")]
-    SetVcpuEvents(#[source] anyhow::Error),
+    SetVcpuEvents(#[source] std::io::Error),
     ///
     /// Vcpu Init error
     ///
     #[error("Failed to init vcpu")]
-    VcpuInit(#[source] anyhow::Error),
+    VcpuInit(#[source] std::io::Error),
     ///
     /// Vcpu Finalize error
     ///
     #[error("Failed to finalize vcpu")]
-    VcpuFinalize(#[source] anyhow::Error),
+    VcpuFinalize(#[source] std::io::Error),
     ///
     /// Setting one reg error
     ///
     #[error("Failed to set one reg")]
-    SetRegister(#[source] anyhow::Error),
+    SetRegister(#[source] std::io::Error),
     ///
     /// Getting one reg error
     ///
     #[error("Failed to get one reg")]
-    GetRegister(#[source] anyhow::Error),
+    GetRegister(#[source] std::io::Error),
     ///
     /// Getting guest clock paused error
     ///
     #[error("Failed to notify guest its clock was paused")]
-    NotifyGuestClockPaused(#[source] anyhow::Error),
+    NotifyGuestClockPaused(#[source] std::io::Error),
     ///
     /// Setting debug register error
     ///
     #[error("Failed to set debug registers")]
-    SetDebugRegs(#[source] anyhow::Error),
+    SetDebugRegs(#[source] std::io::Error),
     ///
     /// Getting debug register error
     ///
     #[error("Failed to get debug registers")]
-    GetDebugRegs(#[source] anyhow::Error),
+    GetDebugRegs(#[source] std::io::Error),
     ///
     /// Setting misc register error
     ///
     #[error("Failed to set misc registers")]
-    SetMiscRegs(#[source] anyhow::Error),
+    SetMiscRegs(#[source] std::io::Error),
     ///
     /// Getting misc register error
     ///
     #[error("Failed to get misc registers")]
-    GetMiscRegs(#[source] anyhow::Error),
+    GetMiscRegs(#[source] std::io::Error),
     ///
     /// Write to Guest Mem
     ///
     #[error("Failed to write to Guest Mem at")]
-    GuestMemWrite(#[source] anyhow::Error),
+    GuestMemWrite(#[source] std::io::Error),
     /// Enabling HyperV SynIC error
     ///
     #[error("Failed to enable HyperV SynIC")]
-    EnableHyperVSyncIc(#[source] anyhow::Error),
+    EnableHyperVSyncIc(#[source] std::io::Error),
     ///
     /// Getting AArch64 core register error
     ///
     #[error("Failed to get aarch64 core register")]
-    GetAarchCoreRegister(#[source] anyhow::Error),
+    GetAarchCoreRegister(#[source] std::io::Error),
     ///
     /// Setting AArch64 core register error
     ///
     #[error("Failed to set aarch64 core register")]
-    SetAarchCoreRegister(#[source] anyhow::Error),
+    SetAarchCoreRegister(#[source] std::io::Error),
     ///
     /// Getting RISC-V 64-bit core register error
     ///
     #[error("Failed to get riscv64 core register")]
-    GetRiscvCoreRegister(#[source] anyhow::Error),
+    GetRiscvCoreRegister(#[source] std::io::Error),
     ///
     /// Setting RISC-V 64-bit core register error
     ///
     #[error("Failed to set riscv64 core register")]
-    SetRiscvCoreRegister(#[source] anyhow::Error),
+    SetRiscvCoreRegister(#[source] std::io::Error),
     ///
     /// Getting registers list error
     ///
     #[error("Failed to retrieve list of registers")]
-    GetRegList(#[source] anyhow::Error),
+    GetRegList(#[source] std::io::Error),
     ///
     /// Getting AArch64 system register error
     ///
     #[error("Failed to get system register")]
-    GetSysRegister(#[source] anyhow::Error),
+    GetSysRegister(#[source] std::io::Error),
     ///
     /// Setting AArch64 system register error
     ///
     #[error("Failed to set system register")]
-    SetSysRegister(#[source] anyhow::Error),
+    SetSysRegister(#[source] std::io::Error),
     ///
     /// Getting RISC-V 64-bit non-core register error
     ///
     #[error("Failed to get non-core register")]
-    GetNonCoreRegister(#[source] anyhow::Error),
+    GetNonCoreRegister(#[source] std::io::Error),
     ///
     /// Setting RISC-V 64-bit non-core register error
     ///
     #[error("Failed to set non-core register")]
-    SetNonCoreRegister(#[source] anyhow::Error),
+    SetNonCoreRegister(#[source] std::io::Error),
     ///
     /// GVA translation error
     ///
     #[error("Failed to translate GVA")]
-    TranslateVirtualAddress(#[source] anyhow::Error),
+    TranslateVirtualAddress(#[source] std::io::Error),
     ///
     /// Set cpu attribute error
     ///
     #[error("Failed to set vcpu attribute")]
-    SetVcpuAttribute(#[source] anyhow::Error),
+    SetVcpuAttribute(#[source] std::io::Error),
     ///
     /// Check if cpu has a certain attribute error
     ///
     #[error("Failed to check if vcpu has attribute")]
-    HasVcpuAttribute(#[source] anyhow::Error),
+    HasVcpuAttribute(#[source] std::io::Error),
     ///
     /// Failed to initialize TDX on CPU
     ///
@@ -293,7 +293,7 @@ pub enum HypervisorCpuError {
     /// Error getting TSC frequency
     ///
     #[error("Failed to get TSC frequency")]
-    GetTscKhz(#[source] anyhow::Error),
+    GetTscKhz(#[source] std::io::Error),
     ///
     /// Error setting TSC frequency
     ///
@@ -449,7 +449,10 @@ pub trait Vcpu: Send + Sync {
     ///
     #[cfg(not(target_arch = "riscv64"))]
     fn set_guest_debug(&self, _addrs: &[GuestAddress], _singlestep: bool) -> Result<()> {
-        Err(HypervisorCpuError::SetDebugRegs(anyhow!("unimplemented")))
+        Err(HypervisorCpuError::SetDebugRegs(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            "unimplemented",
+        )))
     }
     ///
     /// Sets the type of CPU to be exposed to the guest and optional features.

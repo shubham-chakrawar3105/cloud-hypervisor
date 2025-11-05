@@ -21,7 +21,6 @@ use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Barrier, Mutex, mpsc};
 use std::{io, result};
 
-use anyhow::anyhow;
 use seccompiler::SeccompAction;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -119,12 +118,12 @@ pub enum Error {
     EventFdTryCloneFail(#[source] std::io::Error),
     #[error("Failed to MpscRecv")]
     MpscRecvFail(#[source] mpsc::RecvError),
-    #[error("Resize invalid argument")]
-    ResizeError(#[source] anyhow::Error),
+    #[error("Resize invalid argument: {0}")]
+    ResizeError(String),
     #[error("Fail to resize trigger")]
     ResizeTriggerFail(#[source] DeviceError),
-    #[error("Invalid configuration")]
-    ValidateError(#[source] anyhow::Error),
+    #[error("Invalid configuration: {0}")]
+    ValidateError(String),
     #[error("Failed discarding memory range")]
     DiscardMemoryRange(#[source] std::io::Error),
     #[error("Failed DMA mapping")]
@@ -194,38 +193,33 @@ unsafe impl ByteValued for VirtioMemConfig {}
 impl VirtioMemConfig {
     fn validate(&self) -> result::Result<(), Error> {
         if !self.addr.is_multiple_of(self.block_size) {
-            return Err(Error::ValidateError(anyhow!(
+            return Err(Error::ValidateError(format!(
                 "addr 0x{:x} is not aligned on block_size 0x{:x}",
-                self.addr,
-                self.block_size
+                self.addr, self.block_size
             )));
         }
         if !self.region_size.is_multiple_of(self.block_size) {
-            return Err(Error::ValidateError(anyhow!(
+            return Err(Error::ValidateError(format!(
                 "region_size 0x{:x} is not aligned on block_size 0x{:x}",
-                self.region_size,
-                self.block_size
+                self.region_size, self.block_size
             )));
         }
         if !self.usable_region_size.is_multiple_of(self.block_size) {
-            return Err(Error::ValidateError(anyhow!(
+            return Err(Error::ValidateError(format!(
                 "usable_region_size 0x{:x} is not aligned on block_size 0x{:x}",
-                self.usable_region_size,
-                self.block_size
+                self.usable_region_size, self.block_size
             )));
         }
         if !self.plugged_size.is_multiple_of(self.block_size) {
-            return Err(Error::ValidateError(anyhow!(
+            return Err(Error::ValidateError(format!(
                 "plugged_size 0x{:x} is not aligned on block_size 0x{:x}",
-                self.plugged_size,
-                self.block_size
+                self.plugged_size, self.block_size
             )));
         }
         if !self.requested_size.is_multiple_of(self.block_size) {
-            return Err(Error::ValidateError(anyhow!(
+            return Err(Error::ValidateError(format!(
                 "requested_size 0x{:x} is not aligned on block_size 0x{:x}",
-                self.requested_size,
-                self.block_size
+                self.requested_size, self.block_size
             )));
         }
 
@@ -234,20 +228,18 @@ impl VirtioMemConfig {
 
     fn resize(&mut self, size: u64) -> result::Result<(), Error> {
         if self.requested_size == size {
-            return Err(Error::ResizeError(anyhow!(
+            return Err(Error::ResizeError(format!(
                 "new size 0x{size:x} and requested_size are identical"
             )));
         } else if size > self.region_size {
-            return Err(Error::ResizeError(anyhow!(
+            return Err(Error::ResizeError(format!(
                 "new size 0x{:x} is bigger than region_size 0x{:x}",
-                size,
-                self.region_size
+                size, self.region_size
             )));
         } else if !size.is_multiple_of(self.block_size) {
-            return Err(Error::ResizeError(anyhow!(
+            return Err(Error::ResizeError(format!(
                 "new size 0x{:x} is not aligned on block_size 0x{:x}",
-                size,
-                self.block_size
+                size, self.block_size
             )));
         }
 
@@ -646,20 +638,20 @@ impl EpollHelperHandler for MemEpollHandler {
         match ev_type {
             QUEUE_AVAIL_EVENT => {
                 self.queue_evt.read().map_err(|e| {
-                    EpollHelperError::HandleEvent(anyhow!("Failed to get queue event: {e:?}"))
+                    EpollHelperError::HandleEvent(format!("Failed to get queue event: {e:?}"))
                 })?;
 
                 let needs_notification = self.process_queue().map_err(|e| {
-                    EpollHelperError::HandleEvent(anyhow!("Failed to process queue : {e:?}"))
+                    EpollHelperError::HandleEvent(format!("Failed to process queue : {e:?}"))
                 })?;
                 if needs_notification {
                     self.signal(VirtioInterruptType::Queue(0)).map_err(|e| {
-                        EpollHelperError::HandleEvent(anyhow!("Failed to signal used queue: {e:?}"))
+                        EpollHelperError::HandleEvent(format!("Failed to signal used queue: {e:?}"))
                     })?;
                 }
             }
             _ => {
-                return Err(EpollHelperError::HandleEvent(anyhow!(
+                return Err(EpollHelperError::HandleEvent(format!(
                     "Unexpected event: {ev_type}"
                 )));
             }
@@ -793,14 +785,14 @@ impl Mem {
     pub fn resize(&mut self, size: u64) -> result::Result<(), Error> {
         let mut config = self.config.lock().unwrap();
         config.resize(size).map_err(|e| {
-            Error::ResizeError(anyhow!("Failed to update virtio configuration: {e:?}"))
+            Error::ResizeError(format!("Failed to update virtio configuration: {e:?}"))
         })?;
 
         if let Some(interrupt_cb) = self.interrupt_cb.as_ref() {
             interrupt_cb
                 .trigger(VirtioInterruptType::Config)
                 .map_err(|e| {
-                    Error::ResizeError(anyhow!("Failed to signal the guest about resize: {e:?}"))
+                    Error::ResizeError(format!("Failed to signal the guest about resize: {e:?}"))
                 })
         } else {
             Ok(())
